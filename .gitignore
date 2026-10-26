@@ -1,0 +1,39 @@
+# User-owned audio, artwork, and exported files
+/music/
+/backgrounds/
+/telegram_outbox/
+/assets/sample-playlist/
+*.mp3
+*.wav
+*.flac
+*.zip
+
+# Local settings, libraries, caches, and playback history
+/player_settings.json
+/library_cache.json
+/custom_playlists.json
+/discord_covers.json
+/play_history.json
+/playlist_sources.json
+/remote_favorites.json
+/logs/
+
+# Build outputs and downloaded runtime dependencies
+/build/
+/dist/
+/ffmpeg/
+/__pycache__/
+*.py[cod]
+
+# Local environments and credentials
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# IDE and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
