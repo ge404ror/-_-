@@ -1,13 +1,13 @@
 ﻿#define AppName "LAST FREQUENCY"
 #define AppVersion "1.23"
-#define AppExe "SoundLarpPlayer-Rewritten.exe"
+#define AppExe "LastFrequency.exe"
 
 [Setup]
 AppId={{E6A3810D-5BB3-4C35-9AE7-417AEE1A1942}}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=LAST FREQUENCY
-DefaultDirName={localappdata}\Programs\SoundLarp Player
+DefaultDirName={localappdata}\Programs\Last Frequency
 DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -17,7 +17,7 @@ WizardStyle=modern
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\{#AppExe}
 OutputDir=dist
-OutputBaseFilename=SoundLarpPlayer-Setup
+OutputBaseFilename=LastFrequency-Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 UsePreviousAppDir=yes

@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Единственное описание сборки: build_exe.ps1 запускает именно этот файл (pyinstaller SoundLarpPlayer-Rewritten.spec).
+# Build description used by build_exe.ps1 (PyInstaller LastFrequency.spec).
 # Пользовательские данные сохраняются рядом с установленным .exe; тестовый плейлист идёт в комплекте.
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
@@ -36,7 +36,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='SoundLarpPlayer-Rewritten',
+    name='LastFrequency',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

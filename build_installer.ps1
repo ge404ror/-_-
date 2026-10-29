@@ -1,6 +1,6 @@
 ﻿$ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$script = Join-Path $root "SoundLarpPlayer.iss"
+$script = Join-Path $root "LastFrequency.iss"
 $candidates = @()
 $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 if ($command) { $candidates += $command.Source }
@@ -12,10 +12,10 @@ if ($env:LOCALAPPDATA) {
 }
 $iscc = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 not found. Install Inno Setup, then run this script again." }
-$payload = Join-Path $root "dist\SoundLarpPlayer-Rewritten.exe"
-if (-not (Test-Path -LiteralPath $payload)) { throw "Build the player first: dist\SoundLarpPlayer-Rewritten.exe is missing." }
+$payload = Join-Path $root "dist\LastFrequency.exe"
+if (-not (Test-Path -LiteralPath $payload)) { throw "Build the player first: dist\LastFrequency.exe is missing." }
 & $iscc $script
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with exit code $LASTEXITCODE." }
-$setup = Join-Path $root "dist\SoundLarpPlayer-Setup.exe"
+$setup = Join-Path $root "dist\LastFrequency-Setup.exe"
 $size = [math]::Round((Get-Item -LiteralPath $setup).Length / 1MB)
 Write-Host "Installer ready: $setup ($size MB)"

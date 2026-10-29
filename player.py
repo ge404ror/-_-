@@ -251,7 +251,7 @@ def _apply_native_window_icon(hwnd):
 def find_player_hwnd(include_hidden=False):
     """HWND окна плеера (Edge/Chrome в режиме приложения).
 
-    Заголовок окна меняется («Трек · SoundLarp Player»), поэтому ищем по вхождению, а не по началу
+    Заголовок окна меняется («Трек · LAST FREQUENCY»), поэтому ищем по вхождению, а не по началу
     строки, и запоминаем найденное окно."""
     global _PLAYER_HWND
     if os.name != "nt":
@@ -272,7 +272,7 @@ def find_player_hwnd(include_hidden=False):
             return True
         buf = ctypes.create_unicode_buffer(length + 1)
         user32.GetWindowTextW(candidate, buf, length + 1)
-        if "LAST FREQUENCY" in buf.value or "SoundLarp Player" in buf.value:
+        if "LAST FREQUENCY" in buf.value:
             cls = ctypes.create_unicode_buffer(256)
             user32.GetClassNameW(candidate, cls, 256)
             if cls.value.startswith(("Chrome_WidgetWin", "HwndWrapper", "WindowsForms10.Window")):
@@ -3258,7 +3258,7 @@ class Library:
 # Хосты пробуются по очереди: если один отвечает ошибкой 5xx/412, лежит или тормозит, плеер сразу
 # переходит к следующему, а упавший хост на пару минут пропускается. Раньше хост был один (Litterbox),
 # и любой его сбой оставлял статус без обложки.
-COVER_USER_AGENT = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) SoundLarpPlayer/{VERSION}"
+COVER_USER_AGENT = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) LastFrequency/{VERSION}"
 COVER_REQUEST_TIMEOUT = 20        # секунд на один запрос
 COVER_TOTAL_BUDGET = 70           # секунд на всю цепочку хостов для одной обложки
 COVER_HOST_COOLDOWN = 120         # на сколько секунд пропускать хост после сбоя
@@ -3271,7 +3271,7 @@ _URL_IN_TEXT = re.compile(r"https?://[^\s\"'<>\\]+")
 
 
 def _multipart(fields: dict, file_field: str, filename: str, data: bytes, mime: str):
-    boundary = "----SoundLarp" + secrets.token_hex(12)
+    boundary = "----LastFrequency" + secrets.token_hex(12)
     parts = []
     for key, value in fields.items():
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode())
@@ -4005,7 +4005,7 @@ def pick_folder(initial: str = "") -> str:
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = f"SoundLarpPlayer/{VERSION}"
+    server_version = f"LastFrequency/{VERSION}"
 
     def log_message(self, fmt, *args):
         logger.debug("%s - %s", self.address_string(), fmt % args)
@@ -4507,7 +4507,7 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as error:
                 return self._fail(404, str(error))
         if path == "/api/playlist/export-zip":
-            name = str(data.get("name") or "SoundLarp playlist").strip()[:80] or "SoundLarp playlist"
+            name = str(data.get("name") or "Last Frequency playlist").strip()[:80] or "Last Frequency playlist"
             ids = data.get("ids")
             if not isinstance(ids, list) or len(ids) > 10000:
                 return self._fail(400, "Некорректный список треков")
@@ -4542,11 +4542,11 @@ class Handler(BaseHTTPRequestHandler):
                         manifest_tracks.append({"id": str(track_id), "title": track.get("title", ""),
                                                 "artist": track.get("artist", ""), "file": archive_name,
                                                 "source_playlist": track.get("playlist", "")})
-                    manifest = {"format": "SoundLarpPlaylist", "version": 1, "name": name,
+                    manifest = {"format": "LastFrequencyPlaylist", "version": 1, "name": name,
                                 "exportedAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "tracks": manifest_tracks,
                                 "note": "Audio files are included in Tracks/. Re-importing this ZIP is not yet supported; import playlist.json after extracting it."}
                     archive.writestr("playlist.json", json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"))
-                    archive.writestr("README.txt", (f"SoundLarp Player playlist: {name}\n\n"
+                    archive.writestr("README.txt", (f"LAST FREQUENCY playlist: {name}\n\n"
                         f"Audio tracks included: {len(manifest_tracks)}\n"
                         "playlist.json contains the playlist manifest.\n").encode("utf-8"))
             except (OSError, zipfile.BadZipFile) as error:
@@ -5694,7 +5694,7 @@ def acquire_single_instance():
         kernel32.CreateMutexW.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p)
         kernel32.CreateMutexW.restype = ctypes.c_void_p
         ctypes.set_last_error(0)
-        handle = kernel32.CreateMutexW(None, 1, f"Local\\SoundLarpPlayer-{identity}")
+        handle = kernel32.CreateMutexW(None, 1, f"Local\\LastFrequency-{identity}")
         if not handle:
             return True
         if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS

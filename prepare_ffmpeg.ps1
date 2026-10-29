@@ -7,7 +7,7 @@ $ffprobe = Join-Path $target "ffprobe.exe"
 $ready = Join-Path (Join-Path $root "ffmpeg") ".ready"
 if ((Test-Path $ffmpeg) -and (Test-Path $ffprobe) -and (Test-Path $ready)) { exit 0 }
 New-Item -ItemType Directory -Force -Path $target | Out-Null
-$tmp = Join-Path $env:TEMP ("soundlarp-ffmpeg-" + [guid]::NewGuid().ToString("N"))
+$tmp = Join-Path $env:TEMP ("lastfrequency-ffmpeg-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 try {
     $zip = Join-Path $tmp "ffmpeg.zip"

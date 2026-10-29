@@ -24,6 +24,14 @@
 /ffmpeg/
 /__pycache__/
 *.py[cod]
+/phone app/.gradle/
+/phone app/app/build/
+/phone app/local.properties
+/_promo_frames/
+/_promo_wide_frames/
+/_ref_frames/
+/_promo_review*.jpg
+/_ref_contact.jpg
 
 # Local environments and credentials
 .venv/

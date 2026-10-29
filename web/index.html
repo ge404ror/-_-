@@ -180,11 +180,11 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border:2px solid var(
 .np-track-info{width:min(100%,520px);text-align:center}.np-kicker{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
 .np h2{margin:0;font-size:clamp(19px,1.7vw,30px);line-height:1.16;overflow-wrap:anywhere}.np .artist{margin-top:7px;color:rgba(255,255,255,.78);font-size:clamp(13px,1vw,17px);overflow-wrap:anywhere}.np-album{margin-top:4px;color:rgba(255,255,255,.58);font-size:12px;opacity:.9}
 .np-controls{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:4px}.np-controls .playbtn{width:54px;height:54px}.np-controls .iconbtn{color:rgba(255,255,255,.76)}.np-sliders{width:min(100%,520px);display:flex;flex-direction:column;gap:8px}.np-volume-row{display:flex;align-items:center;gap:8px;width:100%}.np-volume-row #vol{flex:1;width:auto;min-width:0}.np-sliders .seekrow{max-width:none}
-.np-details{min-width:0;max-height:100%;height:100%;display:flex;align-items:stretch;overflow:hidden}.np-details .np-lyrics{width:100%;max-height:100%;height:100%;margin:0;padding:5vh clamp(16px,2vw,30px);border:0;border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;overflow:auto;overflow-x:hidden;scrollbar-width:thin;display:flex;flex-direction:column;justify-content:flex-start}.np-lyrics-head{display:none}.np-lyrics-status{display:none}.np-lyric-line{display:block;width:100%;text-align:left;padding:clamp(4px,.6vh,10px) 0;border-radius:6px;color:rgba(255,255,255,.48);background:transparent;line-height:1.35;font-size:clamp(18px,1.65vw,31px);font-weight:750;transition:color .18s,opacity .18s,transform .18s}.np-lyric-line[data-seek]{cursor:pointer}.np-lyric-line[data-seek]:hover{color:rgba(255,255,255,.86);background:transparent}.np-lyric-line.active{color:rgba(255,255,255,.96);font-weight:800;transform:translateX(2px)}.lyric-word{border-radius:4px;transition:color .12s,background-color .12s}.lyric-word.singing{color:var(--accent);background:rgba(var(--accent-rgb),.2);box-shadow:0 0 18px rgba(var(--accent-rgb),.14)}.np-lyrics.collapsed .np-lyrics-body{display:none}
-.np .close{position:absolute;z-index:3;top:22px;right:24px;background:rgba(0,0,0,.16)}.np-open{position:absolute;right:24px;bottom:22px;background:rgba(0,0,0,.2)}
+.np-details{min-width:0;max-height:100%;height:100%;display:flex;align-items:stretch;overflow:hidden}.np-details .np-lyrics{width:100%;max-height:100%;height:100%;margin:0;padding:5vh clamp(16px,2vw,30px);border:0;border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;overflow:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;display:flex;flex-direction:column;justify-content:flex-start}.np-lyrics-head{display:none}.np-lyrics-status{display:none}.np-lyric-line{display:block;width:100%;text-align:left;padding:clamp(4px,.6vh,10px) 0;border-radius:6px;color:rgba(255,255,255,.48);background:transparent;line-height:1.35;font-size:clamp(18px,1.65vw,31px);font-weight:750;transition:color .18s,opacity .18s,transform .18s}.np-lyric-line[data-seek]{cursor:pointer}.np-lyric-line[data-seek]:hover{color:rgba(255,255,255,.86);background:transparent}.np-lyric-line.active{color:rgba(255,255,255,.96);font-weight:800;transform:translateX(2px)}.lyric-word{border-radius:4px;transition:color .12s,background-color .12s}.lyric-word.singing{color:var(--accent);background:rgba(var(--accent-rgb),.2);box-shadow:0 0 18px rgba(var(--accent-rgb),.14)}.np-lyrics.collapsed .np-lyrics-body{display:none}
+.np .close{position:absolute;z-index:3;top:56px;right:24px;width:50px;height:50px;background:rgba(0,0,0,.3);box-shadow:0 4px 18px rgba(0,0,0,.25)}.np .close .icon{width:25px;height:25px}.np-open{position:absolute;right:24px;bottom:22px;background:rgba(0,0,0,.2)}
 body.now-playing-open .bar{visibility:hidden;pointer-events:none}
 
-@media(max-width:700px){.np .card{height:100vh;overflow:auto;padding:18px}.np-layout{height:auto;min-height:100%;grid-template-columns:1fr;gap:12px}.np-media{gap:8px}.np .cover{width:min(46vw,25vh,220px);justify-self:center}.np-details{height:auto;min-height:35vh;text-align:left}.np-progress{margin-top:0}.np-controls{margin-top:0}.np-lyric-line{font-size:clamp(16px,4.2vw,22px);padding:4px 0}}
+@media(max-width:700px){.np .card{height:100vh;overflow:hidden;padding:62px 18px 16px;align-items:stretch}.np-layout{height:100%;min-height:0;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:10px}.np-media{min-height:0;gap:7px}.np .cover{width:min(40vw,22vh,190px);max-width:190px;justify-self:center}.np-details{height:100%;min-height:0;text-align:left}.np-details .np-lyrics{height:100%;max-height:100%;padding:5px 6px 5px 0}.np-progress{margin-top:0}.np-controls{margin-top:0}.np-lyric-line{font-size:clamp(16px,4.2vw,22px);padding:4px 0}}
 
 /* ---------- настройки ---------- */
 .modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(5px);padding:20px}#trackEditorModal{z-index:10000}
@@ -345,6 +345,7 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
 .modal#setupWizardModal{background:rgba(0,0,0,.24);backdrop-filter:blur(2px)}.setup-dialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(920px,94vw);height:min(850px,94vh);background:rgba(var(--panel-rgb),.88);backdrop-filter:blur(12px);box-shadow:0 22px 80px rgba(0,0,0,.5)}.setup-header{cursor:grab;touch-action:none}.setup-header:active{cursor:grabbing}.setup-grid{grid-template-columns:minmax(0,1fr)}.setup-preview{display:none}.setup-theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:9px;margin:14px 0 20px}.setup-theme-card{display:flex;flex-direction:column;align-items:stretch;gap:9px;min-height:82px;padding:9px;border:1px solid rgba(var(--line-rgb),.12);border-radius:13px;background:linear-gradient(145deg,color-mix(in srgb,var(--theme-swatch) 12%,rgba(var(--panel-rgb),.8)),rgba(var(--panel-rgb),.8));color:var(--text);text-align:left;font-size:12px;font-weight:700;transition:transform .14s,border-color .15s,background .14s}.setup-theme-card:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--theme-swatch) 60%,transparent)}.setup-theme-card.active{border-color:var(--theme-swatch);box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-swatch) 35%,transparent)}.setup-theme-preview{height:35px;display:flex;align-items:flex-end;gap:4px;padding:6px;border-radius:8px;background:var(--theme-bg);border:1px solid rgba(255,255,255,.12)}.setup-theme-preview i{display:block;height:12px;flex:1;border-radius:4px;background:var(--theme-swatch);opacity:.84}.setup-theme-preview i:nth-child(2){height:19px;opacity:.55}.setup-theme-preview i:nth-child(3){height:9px;opacity:.34}
 .np-media .cover{width:min(30vw,30vh,420px);max-width:420px}.np-details{max-height:none;overflow:hidden;padding-right:0}.np-details h2{font-size:clamp(24px,4vw,48px)}.np-details .artist{font-size:clamp(15px,1.4vw,20px)}.np-details .np-lyrics{max-height:none}
 @media(max-width:760px){.setup-dialog{width:96vw;height:96vh;padding:15px}.setup-theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.global-search .global-kind-select,.global-search .global-provider-select{flex:1;min-width:0}.np .card{padding:18px}.np-media .cover{width:min(46vw,25vh,220px);max-width:220px}.np-details{overflow:auto}}
+@media(max-width:700px){.np .card{padding:62px 18px 16px;overflow:hidden}.np .cover{width:min(40vw,22vh,190px);max-width:190px}.np-details{overflow:hidden}}
 </style>
 <link rel="icon" href="/favicon.ico?v=5" type="image/x-icon">
 </head>
@@ -946,9 +947,16 @@ const FONTS = {
 };
 
 let customPlaylistsUpdatedAt = 0;
+const CUSTOM_PLAYLISTS_KEY = "lastfrequency.customPlaylists.v1";
+const LEGACY_CUSTOM_PLAYLISTS_KEY = "soundlarp.customPlaylists";
 function loadCustomPlaylists() {
   try {
-    const stored = JSON.parse(localStorage.getItem("soundlarp.customPlaylists") || "[]");
+    let raw = localStorage.getItem(CUSTOM_PLAYLISTS_KEY);
+    if (raw === null) {
+      raw = localStorage.getItem(LEGACY_CUSTOM_PLAYLISTS_KEY);
+      if (raw !== null) { localStorage.setItem(CUSTOM_PLAYLISTS_KEY, raw); localStorage.removeItem(LEGACY_CUSTOM_PLAYLISTS_KEY); }
+    }
+    const stored = JSON.parse(raw || "[]");
     const data = Array.isArray(stored) ? stored : (stored && Array.isArray(stored.items) ? stored.items : []);
     customPlaylistsUpdatedAt = Math.max(0, Number(stored?.updated_at) || 0);
     if (!Array.isArray(data)) return [];
@@ -959,7 +967,7 @@ function loadCustomPlaylists() {
   } catch (_) { return []; }
 }
 function saveCustomPlaylistsLocal() {
-  try { localStorage.setItem("soundlarp.customPlaylists", JSON.stringify({updated_at:customPlaylistsUpdatedAt,items:S.customPlaylists})); }
+  try { localStorage.setItem(CUSTOM_PLAYLISTS_KEY, JSON.stringify({updated_at:customPlaylistsUpdatedAt,items:S.customPlaylists})); }
   catch (_) { toast("Не удалось сохранить плейлисты в браузере."); }
 }
 function saveCustomPlaylists() {
@@ -1153,7 +1161,7 @@ function importCustomPlaylistFile(file) {
   reader.onload = () => {
     try {
       const data = JSON.parse(String(reader.result || ""));
-      if (!data || data.format !== "SoundLarpPlaylist" || !Array.isArray(data.tracks)) throw new Error("format");
+      if (!data || !["LastFrequencyPlaylist","SoundLarpPlaylist"].includes(data.format) || !Array.isArray(data.tracks)) throw new Error("format");
       let name = String(data.name || "Импортированный плейлист").trim().slice(0,80) || "Импортированный плейлист";
       if (S.customPlaylists.some(p=>p.name.toLocaleLowerCase()===name.toLocaleLowerCase())) name = (name.slice(0,68)+" (импорт)").slice(0,80);
       const ids=[];
@@ -1170,7 +1178,7 @@ function importCustomPlaylistFile(file) {
       const playlist={id:customPlaylistId(),name,ids}; S.customPlaylists.push(playlist); saveCustomPlaylists();
       S.view={type:"custompl",key:playlist.id}; renderSidebar(); renderList();
       toast(`Импортирован «${name}»: найдено треков ${ids.length} из ${data.tracks.length} ♡`);
-    } catch (_) { toast("Это не файл плейлиста SoundLarp или файл повреждён."); }
+    } catch (_) { toast("Это не файл плейлиста LAST FREQUENCY или файл повреждён."); }
   };
   reader.readAsText(file);
 }
@@ -1599,8 +1607,10 @@ function thumbHtml(track) {
   const hue = hueFor(track ? (track.artist || track.title) : "");
   return `<div class="thumb" style="--h:${hue}">${icon("note")}</div>`;
 }
-let sidebarPlaylistOrder = (() => { try { const value=JSON.parse(localStorage.getItem("soundlarp.playlistOrder.v1")||"[]"); return Array.isArray(value)?value.filter(x=>typeof x==="string"):[]; } catch { return []; } })();
-function saveSidebarPlaylistOrder(ids){sidebarPlaylistOrder=ids;try{localStorage.setItem("soundlarp.playlistOrder.v1",JSON.stringify(ids));}catch{}}
+const PLAYLIST_ORDER_KEY = "lastfrequency.playlistOrder.v1";
+const LEGACY_PLAYLIST_ORDER_KEY = "soundlarp.playlistOrder.v1";
+let sidebarPlaylistOrder = (() => { try { let raw=localStorage.getItem(PLAYLIST_ORDER_KEY); if(raw===null){raw=localStorage.getItem(LEGACY_PLAYLIST_ORDER_KEY);if(raw!==null){localStorage.setItem(PLAYLIST_ORDER_KEY,raw);localStorage.removeItem(LEGACY_PLAYLIST_ORDER_KEY);}} const value=JSON.parse(raw||"[]"); return Array.isArray(value)?value.filter(x=>typeof x==="string"):[]; } catch { return []; } })();
+function saveSidebarPlaylistOrder(ids){sidebarPlaylistOrder=ids;try{localStorage.setItem(PLAYLIST_ORDER_KEY,JSON.stringify(ids));}catch{}}
 function renderSidebar() {
   const fav = S.settings.favorites.filter((id) => S.byId.has(id)).length + S.remoteFavoriteTracks.size;
   const playlistArt = (tracks, fallback) => {
@@ -2210,7 +2220,7 @@ function updateLyricsHighlight() {
   if(index!==activeLyricsLine) {
     if(activeLyricsLine>=0)lyricsLineNodes[activeLyricsLine]?.node.classList.remove("active");
     activeLyricsLine=index;
-    if(index>=0){const node=lyricsLineNodes[index].node;node.classList.add("active");if(!$("#np").classList.contains("hidden")&&audio.currentTime>0)node.scrollIntoView({block:"center",behavior:"smooth"});}
+    if(index>=0){const node=lyricsLineNodes[index].node;node.classList.add("active");if(!$("#np").classList.contains("hidden")&&audio.currentTime>0)scrollLyricsLineIntoView(node);}
     changed=true;
   }
   const words=index>=0?(lyricsLineNodes[index].words||[]):[];
@@ -2221,6 +2231,13 @@ function updateLyricsHighlight() {
     activeLyricsWordNode?.classList.remove("singing");activeLyricsWordNode=target;activeLyricsWordNode?.classList.add("singing");changed=true;
   }
   if(changed||!lyricsLineNodes.length)sendNowPlaying();
+}
+function scrollLyricsLineIntoView(node) {
+  const container=$("#npLyrics"),containerRect=container.getBoundingClientRect(),lineRect=node.getBoundingClientRect();
+  const style=getComputedStyle(container),topInset=parseFloat(style.paddingTop)||0,bottomInset=parseFloat(style.paddingBottom)||0;
+  const visibleCenter=(containerRect.top+topInset+containerRect.bottom-bottomInset)/2;
+  const target=container.scrollTop+lineRect.top+lineRect.height/2-visibleCenter;
+  container.scrollTo({top:Math.max(0,Math.min(container.scrollHeight-container.clientHeight,target)),behavior:"smooth"});
 }
 function miniLyricsPayload() {
   const mini=S.settings?.mini_player||{};
@@ -2303,11 +2320,16 @@ function updateMediaSession(updateMetadata=false) {
   try {
     if(updateMetadata) {
       const artworkUrl=track?.remote?track.thumbnail:(track?.cover?tk("/cover/"+track.id):"");
-      const artwork=artworkUrl?[96,192,256,512].map(size=>({src:artworkUrl,sizes:`${size}x${size}`})):[];
-      navigator.mediaSession.metadata = track ? new MediaMetadata({
-        title: track.title || "Без названия", artist: track.artist || "Неизвестный исполнитель",
-        album: track.album || track.source || "LAST FREQUENCY", artwork,
-      }) : null;
+      let artwork=[];
+      if(artworkUrl)try{artwork=[{src:new URL(artworkUrl,document.baseURI).href,sizes:"512x512"}];}catch(_){}
+      const metadata=track?{
+        title:String(track.title||"Без названия"),
+        artist:String(track.artist||"Неизвестный исполнитель"),
+        album:String(track.album||track.source||"LAST FREQUENCY"),
+        artwork,
+      }:null;
+      navigator.mediaSession.metadata = metadata&&typeof window.MediaMetadata==="function"
+        ?new window.MediaMetadata(metadata):null;
     }
     navigator.mediaSession.playbackState=track?(audio.paused?"paused":"playing"):"none";
     const duration=Number(audio.duration), position=Number(audio.currentTime);
@@ -3888,8 +3910,9 @@ function safeDownloadText(value) { return String(value || "").replace(/[&<>"']/g
 function downloadPlaylistOptions() { return [{value:"Загрузки",label:S.settings.download_path?"Папка загрузки по умолчанию":"Загрузки"},...S.playlists.map(p=>({value:p.name,label:p.name})).filter((p,i,a)=>a.findIndex(x=>x.value===p.value)===i),{value:"__choose_folder__",label:"Выбрать другую папку…"}]; }
 async function chooseDownloadPlaylist() { const value=await cutePrompt({title:"Куда сохранить трек?",subtitle:"Выбери плейлист библиотеки или папку загрузки.",options:downloadPlaylistOptions(),confirmText:"Скачать MP3"}); return value===null?null:value; }
 const downloadJobs = new Map(); let downloadPollTimer = 0;
-const DOWNLOAD_HISTORY_KEY = "soundlarp.downloadHistory.v1";
-let downloadHistory = (() => { try { const data=JSON.parse(localStorage.getItem(DOWNLOAD_HISTORY_KEY)||"[]"); return Array.isArray(data)?data.slice(0,30):[]; } catch { return []; } })();
+const DOWNLOAD_HISTORY_KEY = "lastfrequency.downloadHistory.v1";
+const LEGACY_DOWNLOAD_HISTORY_KEY = "soundlarp.downloadHistory.v1";
+let downloadHistory = (() => { try { let raw=localStorage.getItem(DOWNLOAD_HISTORY_KEY); if(raw===null){raw=localStorage.getItem(LEGACY_DOWNLOAD_HISTORY_KEY);if(raw!==null){localStorage.setItem(DOWNLOAD_HISTORY_KEY,raw);localStorage.removeItem(LEGACY_DOWNLOAD_HISTORY_KEY);}} const data=JSON.parse(raw||"[]"); return Array.isArray(data)?data.slice(0,30):[]; } catch { return []; } })();
 function formatBytes(bytes){if(!bytes)return "0 Б";const units=["Б","КБ","МБ","ГБ"];let n=bytes,i=0;while(n>=1024&&i<units.length-1){n/=1024;i++;}return n.toFixed(i?1:0)+" "+units[i];}
 function saveDownloadHistory(){try{localStorage.setItem(DOWNLOAD_HISTORY_KEY,JSON.stringify(downloadHistory.slice(0,30)));}catch{}}
 function renderDownloadHistory(){const box=$("#downloadHistory"),count=$("#downloadHistoryCount");if(!box||!count)return;count.textContent=String(downloadHistory.length);box.innerHTML=`<div class="job-head" style="margin-bottom:7px"><b>Недавние загрузки</b><span style="flex:1"></span>${downloadHistory.length?'<button class="btn small" data-download-history-clear>Очистить</button>':''}</div>`+(downloadHistory.length?`<div class="download-history-list">${downloadHistory.map(item=>`<div class="download-history-item ${item.status==='failed'?'failed':''}"><span class="name" title="${safeDownloadText(item.name)}">${safeDownloadText(item.name)}</span><span class="result">${safeDownloadText(item.result||'Готово')}</span></div>`).join('')}</div>`:'<div class="note">История пока пуста.</div>');}
@@ -4235,10 +4258,10 @@ function openNowPlaying() { if (S.current) { const panel=$("#npLyrics"); if(pane
 function closeNowPlaying() { moveNowPlayingSliders(false); $("#np").classList.add("hidden"); document.body.classList.remove("now-playing-open"); }
 
 function bindAudio() {
-  audio.addEventListener("play", () => { S.hasPlayed = true; updatePlayButton(); updateMediaSession(); sendNowPlaying(); startViz(); updateThemeFx(); });
+  audio.addEventListener("play", () => { S.hasPlayed = true; updatePlayButton(); updateMediaSession(true); sendNowPlaying(); startViz(); updateThemeFx(); });
   audio.addEventListener("pause", () => { updatePlayButton(); updateMediaSession(); sendNowPlaying(); saveLast(); updateThemeFx(); });
   audio.addEventListener("seeked", () => { updateMediaSession(); sendNowPlaying(); });
-  audio.addEventListener("playing", () => { S.errorStreak = 0; updateMediaSession(); });
+  audio.addEventListener("playing", () => { S.errorStreak = 0; updateMediaSession(true); });
   let miniLyricsSentAt=0;
   audio.addEventListener("timeupdate", () => { updateSeekUi(); if(Date.now()-mediaSessionPositionAt>=1000)updateMediaSession(); if(S.settings?.mini_player?.lyrics_enabled!==false&&Date.now()-miniLyricsSentAt>2500){miniLyricsSentAt=Date.now();sendNowPlaying();} });
   audio.addEventListener("loadedmetadata", () => {

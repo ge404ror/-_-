@@ -90,6 +90,7 @@ class FloatingMiniPlayer:
         self._opacity_window = None
         self._lyrics_window = None
         self._lyrics_label = None
+        self._lyrics_round_size = None
         self._lyrics_drag = None
         self._lyrics_last_text = ""
         self._lyrics_last_word = -2
@@ -693,7 +694,9 @@ class FloatingMiniPlayer:
             try:
                 self._lyrics_window.configure(bg=surface)
                 self._lyrics_label.configure(bg=surface, fg=foreground, selectbackground=surface)
-                self._lyrics_label.tag_configure("active_word", foreground=accent)
+                self._lyrics_label.tag_configure(
+                    "active_word", foreground=accent,
+                    background=self._blend(surface, accent, 0.24))
             except Exception:
                 pass
         if getattr(self, "time_label", None) is not None:
@@ -1196,13 +1199,16 @@ class FloatingMiniPlayer:
             window.attributes("-topmost", True)
             window.configure(bg=self._colors["surface"])
             self._exclude_from_alt_tab(window)
-            label = tk.Text(window, wrap="word", height=3, width=48, takefocus=0,
-                bg=self._colors["surface"], fg=self._colors["text"], padx=self._d(8), pady=self._d(5),
-                font=("Segoe UI", self._d(13), "bold"), relief="flat", bd=0,
+            lyrics_font = ("Segoe UI", self._d(16), "bold")
+            label = tk.Text(window, wrap="word", height=3, width=52, takefocus=0,
+                bg=self._colors["surface"], fg=self._colors["text"], padx=self._d(16), pady=self._d(10),
+                spacing1=self._d(2), spacing3=self._d(2), font=lyrics_font, relief="flat", bd=0,
                 highlightthickness=0, insertwidth=0, selectbackground=self._colors["surface"],
                 state="disabled", cursor="fleur")
-            label.tag_configure("active_word", foreground=self._colors["accent"], underline=True,
-                                font=("Segoe UI", self._d(13), "bold"))
+            label.tag_configure(
+                "active_word", foreground=self._colors["accent"],
+                background=self._blend(self._colors["surface"], self._colors["accent"], 0.24),
+                font=lyrics_font)
             label.pack(fill="both", expand=True)
             for widget in (window, label):
                 widget.bind("<ButtonPress-1>", self._lyrics_drag_start)
@@ -1279,10 +1285,13 @@ class FloatingMiniPlayer:
         try: word_index = int(state.get("mini_lyrics_word_index", -1))
         except (TypeError, ValueError): word_index = -1
         if text != self._lyrics_last_text or word_index != self._lyrics_last_word:
+            lyrics_font = ("Segoe UI", self._d(16), "bold")
             label.configure(state="normal", bg=palette["surface"], fg=palette["text"],
-                            font=("Segoe UI", self._d(13), "bold"), wrap="word")
-            label.tag_configure("active_word", foreground=palette["accent"], underline=True,
-                                font=("Segoe UI", self._d(13), "bold"))
+                            font=lyrics_font, wrap="word")
+            label.tag_configure(
+                "active_word", foreground=palette["accent"],
+                background=self._blend(palette["surface"], palette["accent"], 0.24),
+                font=lyrics_font)
             label.delete("1.0", "end")
             label.insert("1.0", text)
             word_offsets=list(re.finditer(r"\S+",text))
@@ -1293,8 +1302,8 @@ class FloatingMiniPlayer:
             label.configure(state="disabled")
             self._lyrics_last_text = text
             self._lyrics_last_word = word_index
-        width = self._d(460)
-        height = self._d(24 + count * 25)
+        width = self._d(500)
+        height = self._d(28 + count * 33)
         window.update_idletasks()
         screen_w, screen_h = window.winfo_screenwidth(), window.winfo_screenheight()
         x, y = int(mini.get("lyrics_x", 0) or 0), int(mini.get("lyrics_y", 0) or 0)
@@ -1306,6 +1315,10 @@ class FloatingMiniPlayer:
         x = max(0, min(screen_w - width, x))
         y = max(0, min(screen_h - height, y))
         window.geometry(f"{width}x{height}+{x}+{y}")
+        if self._lyrics_round_size != (width, height):
+            window.update_idletasks()
+            self._round_window(window, width, height)
+            self._lyrics_round_size = (width, height)
         try:
             window.attributes("-alpha", max(.35, min(1.0, self._opacity / 100)))
             window.attributes("-topmost", True)
