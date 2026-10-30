@@ -1,5 +1,5 @@
 ﻿#define AppName "LAST FREQUENCY"
-#define AppVersion "1.23"
+#define AppVersion "1.24"
 #define AppExe "LastFrequency.exe"
 
 [Setup]

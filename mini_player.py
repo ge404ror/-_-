@@ -157,15 +157,17 @@ class FloatingMiniPlayer:
             # so startup never flashes the mini-player before the main window is ready.
             root.withdraw()
             root.title("LAST FREQUENCY — мини-плеер")
-            root.geometry(f"{self._window_width()}x{self._window_height()}+20+20")
             root.overrideredirect(True)
             root.attributes("-topmost", True)
             root.configure(bg=self._colors["surface"])
             self._root = root
+            self._place(mini)
             self._exclude_from_alt_tab(root)
             self._build_ui()
             self._build_lyrics_window()
             self._apply_theme(cfg)
+            root.update_idletasks()
+            self._place(mini)
             root.update_idletasks()
             self._exclude_from_alt_tab(root)
             self._round_window()
@@ -1168,10 +1170,12 @@ class FloatingMiniPlayer:
                     return
                 if command == "show":
                     self._visible = True
-                    self._root.deiconify()
+                    # Resolve the saved position and size before mapping the window.
+                    self._place()
+                    self._root.update_idletasks()
                     self._exclude_from_alt_tab(self._root)
                     self._root.attributes("-topmost", True)
-                    self._place()
+                    self._root.deiconify()
                 elif command == "hide":
                     self._visible = False
                     if self._lyrics_window is not None:

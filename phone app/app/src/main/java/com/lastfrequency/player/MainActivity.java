@@ -43,13 +43,17 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.PopupMenu;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -63,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -78,6 +83,9 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
     private static final String KEY_PLAYLISTS = "playlists_v1";
     private static final String KEY_RECENT = "recently_played_v1";
     private static final String KEY_DOWNLOAD_FOLDER = "download_folder_uri";
+    private static final String KEY_ONLINE_SOURCES = "online_sources";
+    private static final String[] ONLINE_SOURCE_KEYS = {"youtube_music", "youtube", "soundcloud", "deezer", "apple"};
+    private static final String[] ONLINE_SOURCE_NAMES = {"YouTube Music", "YouTube", "SoundCloud", "Deezer", "Apple Music"};
     private static final String[] THEME_NAMES = {"Полночь", "Неон", "Океан", "Монохром", "Maretu", "Spotify", "Discord", "YouTube", "SoundCloud", "Bloodline", "Своя тема"};
     private static final String[][] THEME_PALETTES = {
             {"#0f1020", "#1a1d3a", "#2b1d47", "#16182e", "#eceef8", "#9aa0bd", "#8b95ff"},
@@ -100,7 +108,7 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
     private final ExecutorService importer = Executors.newSingleThreadExecutor();
     private final ExecutorService onlineSearchWorker = Executors.newFixedThreadPool(2);
     private final ExecutorService coverLoader = Executors.newFixedThreadPool(2);
-    private final LruCache<String, Bitmap> artworkCache = new LruCache<String, Bitmap>(8 * 1024) {
+    private final LruCache<String, Bitmap> artworkCache = new LruCache<String, Bitmap>(24 * 1024) {
         @Override protected int sizeOf(String key, Bitmap bitmap) { return Math.max(1, bitmap.getByteCount() / 1024); }
     };
 
@@ -114,6 +122,7 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
     private String query = "";
     private String onlineQuery = "";
     private String onlineProvider = "all";
+    private final LinkedHashSet<String> selectedOnlineProviders = new LinkedHashSet<>();
     private boolean onlineBusy;
     private boolean onlineSearchBusy;
     private boolean showingRecentlyPlayed;
@@ -144,7 +153,6 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
     private TextView nowPlayingTime;
     private TextView nowPlayingTitle, nowPlayingArtist;
     private Button nowPlayingPlayButton;
-    private Button nowPlayingBackgroundButton;
     private final ArrayList<LyricLine> nowPlayingLyrics = new ArrayList<>();
     private final Handler playerUiHandler = new Handler(Looper.getMainLooper());
     private Runnable playerUiTicker;
@@ -230,6 +238,65 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
 
+    private static final class ThemeIconDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final float density;
+        private final int color;
+        ThemeIconDrawable(float density, int color) { this.density = density; this.color = color; }
+        @Override public void draw(Canvas canvas) {
+            Rect bounds = getBounds();
+            float cx = bounds.exactCenterX(), cy = bounds.exactCenterY();
+            float radius = Math.min(bounds.width(), bounds.height()) * 0.24f;
+            paint.setColor(color); paint.setStrokeWidth(2f * density); paint.setStyle(Paint.Style.STROKE);
+            for (int i = 0; i < 8; i++) {
+                double angle = Math.PI * i / 4d;
+                float inner = radius + 2f * density, outer = radius + 6f * density;
+                canvas.drawLine(cx + (float) Math.cos(angle) * inner, cy + (float) Math.sin(angle) * inner,
+                        cx + (float) Math.cos(angle) * outer, cy + (float) Math.sin(angle) * outer, paint);
+            }
+            RectF circle = new RectF(cx - radius, cy - radius, cx + radius, cy + radius);
+            paint.setStyle(Paint.Style.FILL);
+            canvas.drawArc(circle, 90, 180, true, paint);
+            paint.setStyle(Paint.Style.STROKE);
+            canvas.drawCircle(cx, cy, radius, paint);
+            canvas.drawLine(cx, cy - radius + density, cx, cy + radius - density, paint);
+        }
+        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); invalidateSelf(); }
+        @Override public void setColorFilter(android.graphics.ColorFilter filter) { paint.setColorFilter(filter); invalidateSelf(); }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+        @Override public int getIntrinsicWidth() { return Math.round(24 * density); }
+        @Override public int getIntrinsicHeight() { return Math.round(24 * density); }
+    }
+
+    private static final class SpeakerIconDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final float density;
+        private final int color;
+        SpeakerIconDrawable(float density, int color) { this.density = density; this.color = color; }
+        @Override public void draw(Canvas canvas) {
+            Rect bounds = getBounds();
+            float cx = bounds.exactCenterX(), cy = bounds.exactCenterY();
+            paint.setColor(color); paint.setStyle(Paint.Style.FILL);
+            android.graphics.Path speaker = new android.graphics.Path();
+            speaker.moveTo(cx - 7 * density, cy - 3 * density);
+            speaker.lineTo(cx - 3 * density, cy - 3 * density);
+            speaker.lineTo(cx + 2 * density, cy - 7 * density);
+            speaker.lineTo(cx + 2 * density, cy + 7 * density);
+            speaker.lineTo(cx - 3 * density, cy + 3 * density);
+            speaker.lineTo(cx - 7 * density, cy + 3 * density);
+            speaker.close(); canvas.drawPath(speaker, paint);
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.6f * density);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            canvas.drawArc(new RectF(cx - 2 * density, cy - 5 * density, cx + 6 * density, cy + 5 * density), -65, 130, false, paint);
+            canvas.drawArc(new RectF(cx - 2 * density, cy - 8 * density, cx + 10 * density, cy + 8 * density), -65, 130, false, paint);
+        }
+        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); invalidateSelf(); }
+        @Override public void setColorFilter(android.graphics.ColorFilter filter) { paint.setColorFilter(filter); invalidateSelf(); }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+        @Override public int getIntrinsicWidth() { return Math.round(18 * density); }
+        @Override public int getIntrinsicHeight() { return Math.round(18 * density); }
+    }
+
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
             playback = ((PlaybackService.LocalBinder) binder).getService();
@@ -256,6 +323,15 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         if (!("all".equals(onlineProvider) || "youtube_music".equals(onlineProvider)
                 || "youtube".equals(onlineProvider) || "soundcloud".equals(onlineProvider)
                 || "deezer".equals(onlineProvider) || "apple".equals(onlineProvider))) onlineProvider = "all";
+        String savedSources = preferences.getString(KEY_ONLINE_SOURCES, "");
+        if (!savedSources.isEmpty()) {
+            for (String key : savedSources.split(",")) for (String valid : ONLINE_SOURCE_KEYS)
+                if (valid.equals(key.trim())) selectedOnlineProviders.add(valid);
+        } else if ("all".equals(onlineProvider)) Collections.addAll(selectedOnlineProviders, ONLINE_SOURCE_KEYS);
+        else if (isOnlineSource(onlineProvider)) selectedOnlineProviders.add(onlineProvider);
+        if (selectedOnlineProviders.isEmpty()) {
+            selectedOnlineProviders.add("youtube_music"); selectedOnlineProviders.add("youtube"); selectedOnlineProviders.add("soundcloud");
+        }
         if (!("track".equals(onlineKind) || "playlist".equals(onlineKind))) onlineKind = "track";
         readLibrary();
         readPlaylists();
@@ -398,17 +474,16 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         header.setGravity(Gravity.CENTER_VERTICAL);
         TextView brand = label("LAST FREQUENCY", 21, textColor, true);
         header.addView(brand, new LinearLayout.LayoutParams(0, dp(48), 1));
-        Button theme = pill("◐", accentColor, textColor);
+        ImageButton theme = new ImageButton(this);
+        theme.setBackground(roundRect(accentColor, dp(17), 0));
+        theme.setImageDrawable(new ThemeIconDrawable(getResources().getDisplayMetrics().density, textOnAccent()));
+        theme.setScaleType(ImageView.ScaleType.CENTER);
+        theme.setMinimumWidth(0); theme.setMinimumHeight(0);
+        theme.setPadding(dp(11), dp(11), dp(11), dp(11));
         theme.setContentDescription("Сменить тему");
         theme.setOnClickListener(v -> showThemeDialog());
-        header.addView(theme, new LinearLayout.LayoutParams(dp(48), dp(42)));
+        header.addView(theme, new LinearLayout.LayoutParams(dp(48), dp(46)));
         root.addView(header);
-
-        TextView subtitle = label("ТВОЯ МУЗЫКА · ТВОЯ БИБЛИОТЕКА", 10, mutedColor, true);
-        subtitle.setLetterSpacing(0.12f);
-        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(-1, dp(21));
-        subtitleParams.bottomMargin = dp(10);
-        root.addView(subtitle, subtitleParams);
 
         mainBodyScroll = new ScrollView(this);
         mainBodyScroll.setFillViewport(false);
@@ -442,10 +517,10 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         topTabs.setOrientation(LinearLayout.HORIZONTAL);
         topTabs.setPadding(0, dp(13), 0, dp(11));
         tabTracks = tab("Треки"); tabOnline = tab("Поиск"); tabPlaylists = tab("Плейлисты"); tabSettings = tab("Настройки");
-        topTabs.addView(tabTracks, new LinearLayout.LayoutParams(0, dp(42), 0.8f));
-        topTabs.addView(tabOnline, new LinearLayout.LayoutParams(0, dp(42), 0.8f));
-        topTabs.addView(tabPlaylists, new LinearLayout.LayoutParams(0, dp(42), 1.2f));
-        topTabs.addView(tabSettings, new LinearLayout.LayoutParams(0, dp(42), 0.8f));
+        topTabs.addView(tabTracks, new LinearLayout.LayoutParams(0, dp(42), 1f));
+        topTabs.addView(tabOnline, new LinearLayout.LayoutParams(0, dp(42), 1f));
+        topTabs.addView(tabPlaylists, new LinearLayout.LayoutParams(0, dp(42), 1f));
+        topTabs.addView(tabSettings, new LinearLayout.LayoutParams(0, dp(42), 1f));
         HorizontalScrollView tabScroll = new HorizontalScrollView(this);
         tabScroll.setHorizontalScrollBarEnabled(false);
         tabScroll.addView(topTabs, new HorizontalScrollView.LayoutParams(-1, -2));
@@ -473,8 +548,12 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
     private Button tab(String title) {
         Button button = new Button(this);
         button.setText(title);
-        button.setTextSize(13);
+        button.setTextSize(10.5f);
         button.setAllCaps(false);
+        button.setSingleLine(true);
+        button.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        button.setMinWidth(0); button.setMinimumWidth(0); button.setMinHeight(0); button.setMinimumHeight(0);
+        button.setPadding(dp(2), 0, dp(2), 0);
         button.setTextColor(mutedColor);
         button.setBackground(roundRect(Color.TRANSPARENT, dp(13), 0));
         return button;
@@ -662,16 +741,6 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(0, dp(4), 0, 0);
 
-        TextView title = label("НАЙДИ СЛЕДУЮЩИЙ ТРЕК", 11, mutedColor, true);
-        title.setLetterSpacing(0.1f);
-        LinearLayout controls = new LinearLayout(this);
-        controls.setOrientation(LinearLayout.VERTICAL);
-        controls.addView(title);
-        TextView subtitle = label("Ищи в YouTube Music, YouTube и SoundCloud", 13, mutedColor, false);
-        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(-1, -2);
-        subtitleParams.bottomMargin = dp(10);
-        controls.addView(subtitle, subtitleParams);
-
         LinearLayout searchRow = new LinearLayout(this);
         searchRow.setGravity(Gravity.CENTER_VERTICAL);
         onlineSearchField = new EditText(this);
@@ -686,65 +755,15 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         onlineSearchField.setBackground(roundRect(surfaceColor, dp(16), 0));
         onlineSearchField.setText(onlineQuery);
         searchRow.addView(onlineSearchField, new LinearLayout.LayoutParams(0, dp(50), 1));
-        Button go = pill("Найти", accentColor, textOnAccent());
-        LinearLayout.LayoutParams goParams = new LinearLayout.LayoutParams(dp(78), dp(50));
-        goParams.leftMargin = dp(7);
-        searchRow.addView(go, goParams);
-        controls.addView(searchRow);
-
-        LinearLayout kindRow = new LinearLayout(this);
-        kindRow.setGravity(Gravity.CENTER_VERTICAL);
-        kindRow.setPadding(0, dp(9), 0, dp(6));
-        onlineKindTracks = pill("Треки", surfaceColor, textColor);
-        onlineKindPlaylists = pill("Плейлисты", surfaceColor, textColor);
-        kindRow.addView(onlineKindTracks, new LinearLayout.LayoutParams(0, dp(38), 1));
-        LinearLayout.LayoutParams playlistKindParams = new LinearLayout.LayoutParams(0, dp(38), 1);
-        playlistKindParams.leftMargin = dp(7);
-        kindRow.addView(onlineKindPlaylists, playlistKindParams);
-        controls.addView(kindRow);
-        onlineKindTracks.setOnClickListener(v -> setOnlineKind("track"));
-        onlineKindPlaylists.setOnClickListener(v -> setOnlineKind("playlist"));
-
-        HorizontalScrollView sourceScroll = new HorizontalScrollView(this);
-        sourceScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout sourceRow = new LinearLayout(this);
-        sourceRow.setGravity(Gravity.CENTER_VERTICAL);
-        String[] sourceNames = {"Все источники", "YouTube Music", "YouTube", "SoundCloud", "Deezer", "Apple Music"};
-        String[] sourceKeys = {"all", "youtube_music", "youtube", "soundcloud", "deezer", "apple"};
-        onlineProviderButtons = new Button[sourceKeys.length];
-        for (int i = 0; i < sourceKeys.length; i++) {
-            Button chip = pill(sourceNames[i], surfaceColor, textColor);
-            chip.setTextSize(11);
-            LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(-2, dp(36));
-            if (i > 0) chipParams.leftMargin = dp(6);
-            sourceRow.addView(chip, chipParams);
-            onlineProviderButtons[i] = chip;
-            String key = sourceKeys[i];
-            chip.setOnClickListener(v -> setOnlineProvider(key));
-        }
-        sourceScroll.addView(sourceRow);
-        LinearLayout.LayoutParams sourceScrollParams = new LinearLayout.LayoutParams(-1, dp(42));
-        sourceScrollParams.bottomMargin = dp(3);
-        controls.addView(sourceScroll, sourceScrollParams);
-        refreshOnlineSearchFilters();
-
-        LinearLayout external = new LinearLayout(this);
-        external.setGravity(Gravity.CENTER_VERTICAL);
-        Button spotify = pill("Spotify ↗", surfaceColor, mutedColor);
-        Button yandex = pill("Яндекс Музыка ↗", surfaceColor, mutedColor);
-        LinearLayout.LayoutParams externalParams = new LinearLayout.LayoutParams(0, dp(34), 1);
-        externalParams.rightMargin = dp(6);
-        external.addView(spotify, externalParams);
-        external.addView(yandex, new LinearLayout.LayoutParams(0, dp(34), 1));
-        spotify.setOnClickListener(v -> openExternalSearch("https://open.spotify.com/search/"));
-        yandex.setOnClickListener(v -> openExternalSearch("https://music.yandex.ru/search?text="));
-        controls.addView(external);
-
-        ScrollView controlsScroll = new ScrollView(this);
-        controlsScroll.setFillViewport(false);
-        controlsScroll.setVerticalScrollBarEnabled(false);
-        controlsScroll.addView(controls, new ScrollView.LayoutParams(-1, -2));
-        content.addView(controlsScroll, new LinearLayout.LayoutParams(-1, 0, 0.52f));
+        Button options = pill("⋮", surfaceColor, textColor);
+        options.setTextSize(24);
+        options.setMinWidth(0); options.setMinimumWidth(0); options.setPadding(0, 0, 0, dp(3));
+        options.setContentDescription("Параметры поиска");
+        LinearLayout.LayoutParams optionsParams = new LinearLayout.LayoutParams(dp(48), dp(50));
+        optionsParams.leftMargin = dp(7);
+        searchRow.addView(options, optionsParams);
+        content.addView(searchRow, new LinearLayout.LayoutParams(-1, dp(54)));
+        options.setOnClickListener(v -> showOnlineSearchOptions());
 
         LinearLayout resultHeading = new LinearLayout(this);
         resultHeading.setGravity(Gravity.CENTER_VERTICAL);
@@ -824,7 +843,67 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
             }
             return false;
         });
-        go.setOnClickListener(v -> { hideSearchKeyboard(); searchOnline(true); });
+    }
+
+    private void showOnlineSearchOptions() {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(20), dp(8), dp(20), dp(4));
+        TextView sourceTitle = label("Где искать", 13, mutedColor, true);
+        form.addView(sourceTitle, new LinearLayout.LayoutParams(-1, dp(34)));
+        CheckBox[] sourceChecks = new CheckBox[ONLINE_SOURCE_KEYS.length];
+        for (int i = 0; i < ONLINE_SOURCE_KEYS.length; i++) {
+            CheckBox check = new CheckBox(this);
+            check.setText(ONLINE_SOURCE_NAMES[i]);
+            check.setTextSize(14);
+            check.setTextColor(textColor);
+            check.setButtonTintList(android.content.res.ColorStateList.valueOf(accentColor));
+            check.setChecked(selectedOnlineProviders.contains(ONLINE_SOURCE_KEYS[i]));
+            sourceChecks[i] = check;
+            form.addView(check, new LinearLayout.LayoutParams(-1, dp(42)));
+        }
+        TextView kindTitle = label("Искать", 13, mutedColor, true);
+        LinearLayout.LayoutParams kindTitleParams = new LinearLayout.LayoutParams(-1, dp(38));
+        kindTitleParams.topMargin = dp(6);
+        form.addView(kindTitle, kindTitleParams);
+        RadioGroup kindGroup = new RadioGroup(this);
+        kindGroup.setOrientation(RadioGroup.HORIZONTAL);
+        RadioButton tracksChoice = new RadioButton(this);
+        tracksChoice.setText("Треки"); tracksChoice.setTextColor(textColor);
+        tracksChoice.setButtonTintList(android.content.res.ColorStateList.valueOf(accentColor));
+        tracksChoice.setId(View.generateViewId());
+        RadioButton playlistsChoice = new RadioButton(this);
+        playlistsChoice.setText("Плейлисты"); playlistsChoice.setTextColor(textColor);
+        playlistsChoice.setButtonTintList(android.content.res.ColorStateList.valueOf(accentColor));
+        playlistsChoice.setId(View.generateViewId());
+        kindGroup.addView(tracksChoice, new RadioGroup.LayoutParams(0, dp(48), 1f));
+        kindGroup.addView(playlistsChoice, new RadioGroup.LayoutParams(0, dp(48), 1f));
+        kindGroup.check("playlist".equals(onlineKind) ? playlistsChoice.getId() : tracksChoice.getId());
+        form.addView(kindGroup);
+
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Параметры поиска").setView(form)
+                .setNegativeButton("Отмена", null).setPositiveButton("Применить", null).create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            LinkedHashSet<String> nextSources = new LinkedHashSet<>();
+            for (int i = 0; i < sourceChecks.length; i++) if (sourceChecks[i].isChecked()) nextSources.add(ONLINE_SOURCE_KEYS[i]);
+            if (nextSources.isEmpty()) {
+                Toast.makeText(this, "Выбери хотя бы один источник", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            selectedOnlineProviders.clear(); selectedOnlineProviders.addAll(nextSources);
+            onlineKind = kindGroup.getCheckedRadioButtonId() == playlistsChoice.getId() ? "playlist" : "track";
+            String saved = android.text.TextUtils.join(",", selectedOnlineProviders);
+            onlineProvider = selectedOnlineProviders.size() == ONLINE_SOURCE_KEYS.length ? "all" : saved;
+            preferences.edit().putString(KEY_ONLINE_SOURCES, saved).putString("online_kind", onlineKind)
+                    .putString("online_provider", onlineProvider).apply();
+            currentOnlinePlaylistTitle = "";
+            onlineSearchSequence++;
+            onlineSearchBusy = false;
+            if (onlineQuery.trim().isEmpty()) renderPage();
+            else searchOnline(true);
+            dialog.dismiss();
+        }));
+        dialog.show();
     }
 
     private void scheduleOnlineSearch(long delayMs) {
@@ -915,17 +994,18 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
             return;
         }
         long requestId = ++onlineSearchSequence;
+        String selectedSources = selectedOnlineSourceArgument();
         onlineSearchBusy = true;
         showingRecentlyPlayed = false;
         currentOnlinePlaylistTitle = "";
         previousOnlineResults.clear();
         onlineResults.clear();
-        onlineStatus.setText("Ищу " + ("playlist".equals(onlineKind) ? "плейлисты" : "треки") + " · " + providerLabel(onlineProvider) + "…");
+        onlineStatus.setText("Ищу " + ("playlist".equals(onlineKind) ? "плейлисты" : "треки") + " · " + providerLabel(selectedSources) + "…");
         updateOnlineSearchViews();
         onlineSearchWorker.execute(() -> {
             OnlineCatalog.SearchResponse loadedResponse;
             String failure = "";
-            try { loadedResponse = OnlineCatalog.search(term, onlineProvider, onlineKind); }
+            try { loadedResponse = OnlineCatalog.search(term, selectedSources, onlineKind); }
             catch (Exception error) {
                 loadedResponse = new OnlineCatalog.SearchResponse();
                 failure = error.getMessage() == null ? "Поиск временно недоступен" : error.getMessage();
@@ -1060,6 +1140,16 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
             else if (track.previewOnly) download.setOnClickListener(v -> playOnline(track));
             else download.setOnClickListener(v -> downloadOnline(track));
             row.addView(download, new LinearLayout.LayoutParams(-2, dp(40)));
+            if (!showingRecentlyPlayed && !track.isPlaylist) {
+                Button more = pill("⋮", surfaceColor, textColor);
+                more.setTextSize(19);
+                more.setPadding(0, 0, 0, dp(2));
+                more.setContentDescription("Действия с треком");
+                LinearLayout.LayoutParams moreParams = new LinearLayout.LayoutParams(dp(34), dp(40));
+                moreParams.leftMargin = dp(4);
+                row.addView(more, moreParams);
+                more.setOnClickListener(v -> onlineTrackMenu(track));
+            }
             return row;
         }
     }
@@ -1085,7 +1175,22 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
 
     private String providerLabel(String provider) {
         if ("all".equals(provider)) return "Все";
+        if (provider != null && provider.contains(",")) {
+            int count = provider.split(",").length;
+            return count + " источника";
+        }
         return OnlineCatalog.providerName(provider);
+    }
+
+    private String selectedOnlineSourceArgument() {
+        if (selectedOnlineProviders.size() == ONLINE_SOURCE_KEYS.length) return "all";
+        return android.text.TextUtils.join(",", selectedOnlineProviders);
+    }
+
+    private static boolean isOnlineSource(String provider) {
+        if (provider == null) return false;
+        for (String key : ONLINE_SOURCE_KEYS) if (key.equals(provider)) return true;
+        return false;
     }
 
     private String formatDuration(int seconds) {
@@ -1151,13 +1256,14 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
             return;
         }
         String[] actions = track.previewOnly
-                ? new String[]{"Прослушать 30-секундное превью", "Добавить в библиотеку", "Открыть источник"}
-                : new String[]{"Воспроизвести", "Скачать MP3", "Добавить в библиотеку", "Открыть источник"};
+                ? new String[]{"Прослушать 30-секундное превью", "Добавить в плейлист", "Добавить в библиотеку", "Открыть источник"}
+                : new String[]{"Воспроизвести", "Добавить в плейлист", "Скачать MP3", "Добавить в библиотеку", "Открыть источник"};
         new AlertDialog.Builder(this).setTitle(track.title).setItems(actions, (dialog, which) -> {
             try {
                 if (which == 0) playOnline(track);
-                else if (track.previewOnly && which == 1 || !track.previewOnly && which == 2) addOnlineToLibrary(track);
-                else if (!track.previewOnly && which == 1) downloadOnline(track);
+                else if (which == 1) showTrackPlaylistDialog(track);
+                else if (track.previewOnly && which == 2 || !track.previewOnly && which == 3) addOnlineToLibrary(track);
+                else if (!track.previewOnly && which == 2) downloadOnline(track);
                 else startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(track.uri)));
             } catch (Exception ignored) { Toast.makeText(this, "Не удалось открыть источник", Toast.LENGTH_SHORT).show(); }
         }).show();
@@ -1258,6 +1364,44 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
 
     private void downloadOnline(Track track) {
         if (onlineBusy) { Toast.makeText(this, "Подожди, выполняется поиск или воспроизведение", Toast.LENGTH_SHORT).show(); return; }
+        String[] choices = new String[playlists.size() + 2];
+        choices[0] = "Скачать без плейлиста";
+        for (int i = 0; i < playlists.size(); i++) choices[i + 1] = playlists.get(i).name;
+        choices[choices.length - 1] = "＋ Создать новый плейлист";
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("В какой плейлист сохранить?")
+                .setItems(choices, (d, which) -> {
+                    String folder = preferences.getString(KEY_DOWNLOAD_FOLDER, "");
+                    if (which == 0) downloadOnlineToPlaylist(track, folder, "");
+                    else if (which == choices.length - 1) createPlaylistForDownload(track, folder);
+                    else downloadOnlineToPlaylist(track, folder, playlists.get(which - 1).name);
+                }).setNegativeButton("Отмена", null).create();
+        dialog.show();
+    }
+
+    private void createPlaylistForDownload(Track track, String folderUri) {
+        EditText input = new EditText(this);
+        input.setSingleLine(true); input.setHint("Название плейлиста");
+        input.setTextColor(textColor); input.setHintTextColor(mutedColor);
+        input.setPadding(dp(14), 0, dp(14), 0); input.setBackground(roundRect(surfaceColor, dp(12), 0));
+        LinearLayout form = new LinearLayout(this);
+        form.setPadding(dp(22), dp(8), dp(22), 0);
+        form.addView(input, new LinearLayout.LayoutParams(-1, dp(48)));
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Создать плейлист")
+                .setView(form).setNegativeButton("Отмена", null).setPositiveButton("Создать и скачать", null).create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String name = input.getText().toString().trim();
+            if (name.isEmpty()) { input.setError("Введи название"); return; }
+            if (findPlaylist(name) != null) { input.setError("Такой плейлист уже есть"); return; }
+            playlists.add(new Playlist(name));
+            savePlaylists();
+            dialog.dismiss();
+            downloadOnlineToPlaylist(track, folderUri, name);
+        }));
+        dialog.show();
+    }
+
+    private void downloadOnlineToPlaylist(Track track, String folderUri, String playlistName) {
+        if (onlineBusy) { Toast.makeText(this, "Подожди, выполняется поиск или воспроизведение", Toast.LENGTH_SHORT).show(); return; }
         onlineBusy = true;
         if (onlineStatus != null) onlineStatus.setText("Загружаю MP3 · " + track.title);
         importer.execute(() -> {
@@ -1266,16 +1410,22 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
                 java.io.File file = OnlineCatalog.download(getApplicationContext(), pageUrl, percent -> runOnUiThread(() -> {
                     if (onlineStatus != null) onlineStatus.setText("Загружаю MP3 · " + track.title + " · " + Math.round(percent) + "%");
                 }));
-                Uri savedUri = publishDownloadedFile(file);
+                Uri savedUri = publishDownloadedFile(file, folderUri);
                 if (savedUri != null) file.delete();
                 Track downloaded = readTrack(savedUri == null ? Uri.fromFile(file) : savedUri);
                 runOnUiThread(() -> {
                     onlineBusy = false;
                     if (findTrack(downloaded.uri) == null) tracks.add(downloaded);
                     saveLibrary();
+                    if (playlistName != null && !playlistName.trim().isEmpty()) {
+                        Playlist playlist = findPlaylist(playlistName);
+                        if (playlist == null) { playlist = new Playlist(playlistName); playlists.add(playlist); }
+                        if (!playlist.ids.contains(downloaded.uri)) playlist.ids.add(downloaded.uri);
+                        savePlaylists();
+                    }
                     if (onlineStatus != null) onlineStatus.setText("Скачано в библиотеку: " + downloaded.title);
-                    Toast.makeText(this, "MP3 сохранён", Toast.LENGTH_SHORT).show();
-                    showTrackPlaylistDialog(downloaded);
+                    Toast.makeText(this, playlistName == null || playlistName.isEmpty()
+                            ? "MP3 сохранён" : "MP3 добавлен в «" + playlistName + "»", Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception error) {
                 String message = error.getMessage() == null ? "Загрузка не удалась" : error.getMessage();
@@ -1292,16 +1442,19 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         if (track.artworkUrl == null || track.artworkUrl.isEmpty()) return;
         target.setTag(track.uri);
         Bitmap cached = artworkCache.get(track.uri);
-        if (cached != null) { target.setImageBitmap(cached); return; }
+        if (cached != null) {
+            target.setImageBitmap(cached);
+            if (playback != null && track.uri.equals(playback.getCurrentUri())) updateTrackCoverBackground();
+            return;
+        }
         coverLoader.execute(() -> {
             Bitmap image = null;
-            try {
-                java.net.URLConnection connection = new java.net.URL(track.artworkUrl).openConnection();
-                connection.setConnectTimeout(8000); connection.setReadTimeout(10000);
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 Last Frequency");
-                try (java.io.InputStream stream = connection.getInputStream()) { image = BitmapFactory.decodeStream(stream); }
-                if (image != null) artworkCache.put(track.uri, image);
-            } catch (Exception ignored) { }
+            for (String url : artworkUrlCandidates(track.artworkUrl)) {
+                try { image = decodeRemoteArtwork(url); }
+                catch (Exception ignored) { }
+                if (image != null) break;
+            }
+            if (image != null) artworkCache.put(track.uri, image);
             Bitmap decoded = image;
             if (decoded != null) runOnUiThread(() -> {
                 if (track.uri.equals(target.getTag()) && artworkCache.get(track.uri) == decoded) {
@@ -1312,8 +1465,50 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         });
     }
 
-    private Uri publishDownloadedFile(java.io.File file) {
-        String selectedTree = preferences.getString(KEY_DOWNLOAD_FOLDER, "");
+    private ArrayList<String> artworkUrlCandidates(String source) {
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        if (source == null || source.trim().isEmpty()) return new ArrayList<>();
+        String url = source.trim();
+        String lower = url.toLowerCase(Locale.ROOT);
+        if (lower.contains("i.ytimg.com/vi")) {
+            int slash = url.lastIndexOf('/');
+            if (slash > 0) {
+                String folder = url.substring(0, slash + 1);
+                candidates.add(folder + "maxresdefault.jpg");
+                candidates.add(folder + "sddefault.jpg");
+                candidates.add(folder + "hqdefault.jpg");
+            }
+        }
+        if (lower.contains("sndcdn.com/")) {
+            candidates.add(url.replaceAll("(?i)-large\\.", "-t500x500."));
+            candidates.add(url.replaceAll("(?i)t\\d+x\\d+", "t500x500"));
+        }
+        if (lower.contains("deezer") || lower.contains("dzcdn"))
+            candidates.add(url.replaceAll("(?i)/\\d{2,4}x\\d{2,4}(?=-)", "/1000x1000"));
+        if (lower.contains("apple") || lower.contains("mzstatic"))
+            candidates.add(url.replaceAll("(?i)/\\d{2,4}x\\d{2,4}bb", "/1000x1000bb"));
+        candidates.add(url);
+        return new ArrayList<>(candidates);
+    }
+
+    private Bitmap decodeRemoteArtwork(String url) throws Exception {
+        java.net.URLConnection connection = new java.net.URL(url).openConnection();
+        connection.setConnectTimeout(8000); connection.setReadTimeout(10000);
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0 Last Frequency");
+        try (java.io.InputStream input = connection.getInputStream();
+             java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[16 * 1024];
+            int read, total = 0;
+            while ((read = input.read(buffer)) >= 0) {
+                total += read;
+                if (total > 16 * 1024 * 1024) throw new java.io.IOException("Обложка слишком большая");
+                bytes.write(buffer, 0, read);
+            }
+            return decodeSampledArtwork(bytes.toByteArray(), 1200);
+        }
+    }
+
+    private Uri publishDownloadedFile(java.io.File file, String selectedTree) {
         if (!selectedTree.isEmpty()) {
             try {
                 Uri tree = Uri.parse(selectedTree);
@@ -1614,8 +1809,10 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         progressRow.addView(dockTime, new LinearLayout.LayoutParams(dp(36), dp(30)));
         dockSeek = makeSeekBar(1000);
         progressRow.addView(dockSeek, new LinearLayout.LayoutParams(0, dp(30), 1));
-        TextView volumeIcon = label("◖", 13, mutedColor, true);
-        volumeIcon.setGravity(Gravity.CENTER);
+        ImageView volumeIcon = new ImageView(this);
+        volumeIcon.setScaleType(ImageView.ScaleType.CENTER);
+        volumeIcon.setImageDrawable(new SpeakerIconDrawable(getResources().getDisplayMetrics().density, mutedColor));
+        volumeIcon.setContentDescription("Громкость");
         progressRow.addView(volumeIcon, new LinearLayout.LayoutParams(dp(20), dp(30)));
         dockVolume = makeSeekBar(100);
         progressRow.addView(dockVolume, new LinearLayout.LayoutParams(dp(74), dp(30)));
@@ -1717,7 +1914,13 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         content.addView(top, new LinearLayout.LayoutParams(-1, dp(48)));
 
         FrameLayout coverAndLyrics = new FrameLayout(this);
-        LinearLayout.LayoutParams mediaParams = new LinearLayout.LayoutParams(-1, dp(300));
+        float density = getResources().getDisplayMetrics().density;
+        int screenHeightDp = Math.round(getResources().getDisplayMetrics().heightPixels / density);
+        int screenWidthDp = Math.round(getResources().getDisplayMetrics().widthPixels / density);
+        int coverSizeDp = Math.min(300, Math.max(144, screenHeightDp - 470));
+        coverSizeDp = Math.min(coverSizeDp, Math.max(144, screenWidthDp - 48));
+        LinearLayout.LayoutParams mediaParams = new LinearLayout.LayoutParams(dp(coverSizeDp), dp(coverSizeDp));
+        mediaParams.gravity = Gravity.CENTER_HORIZONTAL;
         mediaParams.topMargin = dp(12);
         mediaParams.bottomMargin = dp(12);
         content.addView(coverAndLyrics, mediaParams);
@@ -1748,23 +1951,14 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         LinearLayout actions = new LinearLayout(this);
         actions.setGravity(Gravity.CENTER);
         Button lyrics = pill("♫  Текст песни", surfaceColor, textColor);
-        Button crop = pill("Обрезать обложку", surfaceColor, textColor);
-        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(0, dp(40), 1);
-        actionParams.rightMargin = dp(6);
-        actions.addView(lyrics, actionParams);
-        actions.addView(crop, new LinearLayout.LayoutParams(0, dp(40), 1));
-        content.addView(actions, new LinearLayout.LayoutParams(-1, dp(44)));
-        nowPlayingBackgroundButton = pill("Использовать обложку как фон", surfaceColor, textColor);
-        LinearLayout.LayoutParams backgroundButtonParams = new LinearLayout.LayoutParams(-1, dp(40));
-        backgroundButtonParams.topMargin = dp(6);
-        content.addView(nowPlayingBackgroundButton, backgroundButtonParams);
-        nowPlayingBackgroundButton.setOnClickListener(v -> setTrackCoverBackgroundEnabled(
-                !preferences.getBoolean("use_track_cover_background", false)));
-        nowPlayingLyricsStatus = label("Нажми «Текст песни», чтобы загрузить текст.", 12, mutedColor, false);
+        lyrics.setTextSize(10.5f);
+        actions.addView(lyrics, new LinearLayout.LayoutParams(dp(138), dp(34)));
+        content.addView(actions, new LinearLayout.LayoutParams(-1, dp(38)));
+        nowPlayingLyricsStatus = label("", 12, mutedColor, false);
         nowPlayingLyricsStatus.setGravity(Gravity.CENTER);
-        content.addView(nowPlayingLyricsStatus, new LinearLayout.LayoutParams(-1, dp(30)));
+        nowPlayingLyricsStatus.setVisibility(View.GONE);
+        content.addView(nowPlayingLyricsStatus, new LinearLayout.LayoutParams(-1, dp(26)));
         lyrics.setOnClickListener(v -> toggleNowPlayingLyrics());
-        crop.setOnClickListener(v -> showCoverCropDialog());
 
         LinearLayout controls = new LinearLayout(this);
         controls.setGravity(Gravity.CENTER);
@@ -1820,7 +2014,7 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
             nowPlayingDialog = null; nowPlayingFrame = null; nowPlayingCover = null; nowPlayingSeek = null;
             nowPlayingVolume = null; nowPlayingLyricsScroll = null; nowPlayingLyricsLines = null;
             nowPlayingLyricsStatus = null; nowPlayingTime = null; nowPlayingTrack = null;
-            nowPlayingTitle = null; nowPlayingArtist = null; nowPlayingPlayButton = null; nowPlayingBackgroundButton = null;
+            nowPlayingTitle = null; nowPlayingArtist = null; nowPlayingPlayButton = null;
             nowPlayingLyrics.clear(); activeLyricLine = -1;
             nowPlayingLyricsKey = "";
         });
@@ -1853,14 +2047,12 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
             nowPlayingLyrics.clear();
             activeLyricLine = -1;
             if (nowPlayingLyricsLines != null) nowPlayingLyricsLines.removeAllViews();
-            if (nowPlayingLyricsStatus != null) nowPlayingLyricsStatus.setText("Нажми «Текст песни», чтобы загрузить текст.");
+            if (nowPlayingLyricsStatus != null) { nowPlayingLyricsStatus.setText(""); nowPlayingLyricsStatus.setVisibility(View.GONE); }
             nowPlayingCover.setImageResource(android.R.drawable.ic_media_play);
         }
         if (nowPlayingTitle != null) nowPlayingTitle.setText(displayTrackTitle(nowPlayingTrack));
         if (nowPlayingArtist != null) nowPlayingArtist.setText(nowPlayingTrack.artist);
         if (nowPlayingPlayButton != null) nowPlayingPlayButton.setText(playback.isPlaying() ? "Ⅱ" : "▶");
-        if (nowPlayingBackgroundButton != null) nowPlayingBackgroundButton.setText(
-                preferences.getBoolean("use_track_cover_background", false) ? "Выключить фон из обложки" : "Использовать обложку как фон");
         Bitmap art = artwork(nowPlayingTrack);
         if (art != null) nowPlayingCover.setImageBitmap(art);
         else if (nowPlayingTrack.online) loadRemoteArtwork(nowPlayingTrack, nowPlayingCover);
@@ -1873,6 +2065,7 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         nowPlayingShowLyrics = !nowPlayingShowLyrics;
         nowPlayingCover.setVisibility(nowPlayingShowLyrics ? View.GONE : View.VISIBLE);
         nowPlayingLyricsScroll.setVisibility(nowPlayingShowLyrics ? View.VISIBLE : View.GONE);
+        if (!nowPlayingShowLyrics && nowPlayingLyricsStatus != null) nowPlayingLyricsStatus.setVisibility(View.GONE);
         if (nowPlayingShowLyrics && nowPlayingLyrics.isEmpty()) loadNowPlayingLyrics();
     }
 
@@ -1883,7 +2076,10 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         if (key.equals(nowPlayingLyricsKey) && !nowPlayingLyrics.isEmpty()) return;
         nowPlayingLyricsKey = key;
         nowPlayingLyrics.clear(); activeLyricLine = -1;
-        if (nowPlayingLyricsStatus != null) nowPlayingLyricsStatus.setText("Ищу текст песни…");
+        if (nowPlayingLyricsStatus != null) {
+            nowPlayingLyricsStatus.setText("Ищу текст песни…");
+            nowPlayingLyricsStatus.setVisibility(View.VISIBLE);
+        }
         importer.execute(() -> {
             JSONObject result = null; String failure = "";
             try {
@@ -1898,7 +2094,10 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
                 String synced = fetched.optString("syncedLyrics", "");
                 String plain = fetched.optString("plainLyrics", "");
                 parseLyrics(synced, plain);
-                if (nowPlayingLyricsStatus != null) nowPlayingLyricsStatus.setText(nowPlayingLyrics.isEmpty() ? "Текст песни не найден." : "Текст загружен · синхронизированные строки подсвечиваются");
+                if (nowPlayingLyricsStatus != null) {
+                    nowPlayingLyricsStatus.setText("Текст песни не найден.");
+                    nowPlayingLyricsStatus.setVisibility(nowPlayingLyrics.isEmpty() ? View.VISIBLE : View.GONE);
+                }
                 renderNowPlayingLyrics();
                 updateLyricsHighlight();
             });
@@ -1958,14 +2157,15 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
     }
 
     private void showLyricsError(String message) {
-        if (nowPlayingLyricsStatus != null) nowPlayingLyricsStatus.setText(message == null || message.isEmpty() ? "Текст песни не найден." : message);
+        if (nowPlayingLyricsStatus != null) {
+            nowPlayingLyricsStatus.setText(message == null || message.isEmpty() ? "Текст песни не найден." : message);
+            nowPlayingLyricsStatus.setVisibility(View.VISIBLE);
+        }
     }
 
     private void setTrackCoverBackgroundEnabled(boolean enabled) {
         preferences.edit().putBoolean("use_track_cover_background", enabled).apply();
         updateTrackCoverBackground();
-        if (nowPlayingBackgroundButton != null) nowPlayingBackgroundButton.setText(
-                enabled ? "Выключить фон из обложки" : "Использовать обложку как фон");
         if (page == 3) renderPage();
         if (enabled) {
             Track current = playback == null ? null : findAnyTrack(playback.getCurrentUri());
@@ -1992,12 +2192,37 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         Bitmap source = track == null ? null : artworkCache.get(track.uri);
         if (source == null && track != null) source = artwork(track);
         if (source == null) {
+            if (track != null && track.online && track.artworkUrl != null && !track.artworkUrl.isEmpty()) {
+                Toast.makeText(this, "Загружаю исходную обложку…", Toast.LENGTH_SHORT).show();
+                Track requested = track;
+                coverLoader.execute(() -> {
+                    Bitmap loaded = null;
+                    for (String url : artworkUrlCandidates(requested.artworkUrl)) {
+                        try { loaded = decodeRemoteArtwork(url); }
+                        catch (Exception ignored) { }
+                        if (loaded != null) break;
+                    }
+                    Bitmap decoded = loaded;
+                    if (decoded != null) artworkCache.put(requested.uri, decoded);
+                    runOnUiThread(() -> {
+                        if (nowPlayingTrack == null || !requested.uri.equals(nowPlayingTrack.uri)) return;
+                        if (decoded == null) {
+                            Toast.makeText(this, "Не удалось загрузить обложку для обрезки.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        if (nowPlayingCover != null) nowPlayingCover.setImageBitmap(decoded);
+                        updateTrackCoverBackground();
+                        showCoverCropDialog();
+                    });
+                });
+                return;
+            }
             Toast.makeText(this, "Обложка ещё загружается или у трека нет изображения.", Toast.LENGTH_LONG).show();
             return;
         }
         final Bitmap original = source;
         ImageView preview = new ImageView(this);
-        preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
         preview.setBackground(roundRect(surfaceColor, dp(16), 0));
         SeekBar zoom = makeSeekBar(100);
         SeekBar horizontal = makeSeekBar(100);
@@ -2005,21 +2230,51 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         zoom.setProgress(0); horizontal.setProgress(50); vertical.setProgress(50);
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
+        form.setGravity(Gravity.CENTER_HORIZONTAL);
         form.setPadding(dp(20), dp(10), dp(20), 0);
-        form.addView(preview, new LinearLayout.LayoutParams(-1, dp(260)));
-        form.addView(label("Масштаб", 12, mutedColor, false)); form.addView(zoom);
-        form.addView(label("Смещение по горизонтали", 12, mutedColor, false)); form.addView(horizontal);
-        form.addView(label("Смещение по вертикали", 12, mutedColor, false)); form.addView(vertical);
-        Runnable refresh = () -> preview.setImageBitmap(cropCover(original, zoom.getProgress(), horizontal.getProgress(), vertical.getProgress()));
+        int previewSize = Math.min(dp(280), getResources().getDisplayMetrics().widthPixels - dp(72));
+        FrameLayout previewFrame = new FrameLayout(this);
+        previewFrame.addView(preview, new FrameLayout.LayoutParams(previewSize, previewSize, Gravity.CENTER));
+        form.addView(previewFrame, new LinearLayout.LayoutParams(-1, previewSize));
+        form.addView(label("Масштаб · двигай изображение или используй ползунок", 12, mutedColor, false)); form.addView(zoom);
+        form.addView(label("Положение по горизонтали", 12, mutedColor, false)); form.addView(horizontal);
+        form.addView(label("Положение по вертикали", 12, mutedColor, false)); form.addView(vertical);
+        Runnable refresh = () -> {
+            Bitmap next = cropCover(original, zoom.getProgress(), horizontal.getProgress(), vertical.getProgress());
+            android.graphics.drawable.Drawable oldDrawable = preview.getDrawable();
+            Bitmap old = oldDrawable instanceof android.graphics.drawable.BitmapDrawable
+                    ? ((android.graphics.drawable.BitmapDrawable) oldDrawable).getBitmap() : null;
+            preview.setImageBitmap(next);
+            if (old != null && old != original && old != next && !old.isRecycled()) old.recycle();
+        };
         SeekBar.OnSeekBarChangeListener listener = new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) { refresh.run(); }
             @Override public void onStartTrackingTouch(SeekBar seekBar) { }
             @Override public void onStopTrackingTouch(SeekBar seekBar) { }
         };
         zoom.setOnSeekBarChangeListener(listener); horizontal.setOnSeekBarChangeListener(listener); vertical.setOnSeekBarChangeListener(listener);
+        final float[] previousTouch = new float[2];
+        preview.setOnTouchListener((view, event) -> {
+            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                previousTouch[0] = event.getX(); previousTouch[1] = event.getY(); return true;
+            }
+            if (event.getAction() == android.view.MotionEvent.ACTION_MOVE) {
+                float width = Math.max(1, preview.getWidth()), height = Math.max(1, preview.getHeight());
+                int dx = Math.round((event.getX() - previousTouch[0]) * 100f / width);
+                int dy = Math.round((event.getY() - previousTouch[1]) * 100f / height);
+                if (dx != 0) horizontal.setProgress(Math.max(0, Math.min(100, horizontal.getProgress() + dx)));
+                if (dy != 0) vertical.setProgress(Math.max(0, Math.min(100, vertical.getProgress() + dy)));
+                previousTouch[0] = event.getX(); previousTouch[1] = event.getY();
+                return true;
+            }
+            return event.getAction() == android.view.MotionEvent.ACTION_UP || event.getAction() == android.view.MotionEvent.ACTION_CANCEL;
+        });
         refresh.run();
+        ScrollView formScroll = new ScrollView(this);
+        formScroll.setFillViewport(false);
+        formScroll.addView(form);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Обрезка обложки")
-                .setView(form).setNegativeButton("Отмена", null).setPositiveButton("Сохранить", null).create();
+                .setView(formScroll).setNegativeButton("Отмена", null).setPositiveButton("Сохранить", null).create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             Bitmap result = cropCover(original, zoom.getProgress(), horizontal.getProgress(), vertical.getProgress());
             try {
@@ -2028,7 +2283,7 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
                 String id = Integer.toHexString(track.uri.hashCode());
                 java.io.File output = new java.io.File(folder, id + ".jpg");
                 try (java.io.FileOutputStream stream = new java.io.FileOutputStream(output)) {
-                    result.compress(Bitmap.CompressFormat.JPEG, 92, stream);
+                    result.compress(Bitmap.CompressFormat.JPEG, 96, stream);
                 }
                 track.artworkUrl = output.toURI().toString();
                 artworkCache.put(track.uri, result);
@@ -2053,7 +2308,8 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         int x = Math.max(0, Math.min(maxX, Math.round(maxX * (0.5f + panX * 0.5f))));
         int y = Math.max(0, Math.min(maxY, Math.round(maxY * (0.5f + panY * 0.5f))));
         Bitmap square = Bitmap.createBitmap(source, x, y, size, size);
-        Bitmap output = square.getWidth() == 512 ? square : Bitmap.createScaledBitmap(square, 512, 512, true);
+        int outputSize = Math.min(1600, size);
+        Bitmap output = square.getWidth() == outputSize ? square : Bitmap.createScaledBitmap(square, outputSize, outputSize, true);
         if (output != square) square.recycle();
         return output;
     }
@@ -2061,6 +2317,7 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
     private Button transport(String glyph, Runnable action) {
         Button button = new Button(this);
         button.setText(glyph); button.setTextSize(25); button.setAllCaps(false);
+        button.setMinWidth(0); button.setMinimumWidth(0); button.setMinHeight(0); button.setMinimumHeight(0);
         button.setTextColor(textColor); button.setPadding(0, 0, 0, dp(3));
         button.setBackgroundColor(Color.TRANSPARENT);
         button.setOnClickListener(v -> action.run());
@@ -2171,6 +2428,17 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_DOWNLOAD_FOLDER) {
+            if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+            Uri tree = data.getData();
+            int flags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            try { getContentResolver().takePersistableUriPermission(tree, flags); }
+            catch (SecurityException ignored) { }
+            preferences.edit().putString(KEY_DOWNLOAD_FOLDER, tree.toString()).apply();
+            Toast.makeText(this, "Папка загрузок сохранена для следующих треков.", Toast.LENGTH_LONG).show();
+            renderPage();
+            return;
+        }
         if (resultCode != RESULT_OK || data == null) return;
         if (requestCode == REQUEST_FILES) {
             ArrayList<Uri> uris = new ArrayList<>();
@@ -2179,14 +2447,6 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
             } else if (data.getData() != null) uris.add(data.getData());
             takeUriPermissions(uris, data.getFlags());
             importUris(uris);
-        } else if (requestCode == REQUEST_DOWNLOAD_FOLDER && data.getData() != null) {
-            Uri tree = data.getData();
-            int flags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            try { getContentResolver().takePersistableUriPermission(tree, flags); }
-            catch (SecurityException ignored) { }
-            preferences.edit().putString(KEY_DOWNLOAD_FOLDER, tree.toString()).apply();
-            Toast.makeText(this, "Папка загрузок сохранена. Следующий трек пойдёт сразу туда.", Toast.LENGTH_LONG).show();
-            renderPage();
         } else if (requestCode == REQUEST_FOLDER && data.getData() != null) {
             Uri tree = data.getData();
             try { getContentResolver().takePersistableUriPermission(tree, data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION); }
@@ -2365,17 +2625,34 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
     }
 
     private void showTrackPlaylistDialog(Track track) {
-        if (playlists.isEmpty()) { createPlaylistDialog(track); return; }
-        String[] names = new String[playlists.size()];
+        if (track.online) track = ensureOnlineTrackInLibrary(track);
+        String[] names = new String[playlists.size() + 1];
         for (int i = 0; i < playlists.size(); i++) names[i] = playlists.get(i).name;
+        names[names.length - 1] = "＋ Создать новый плейлист";
+        Track playlistTrack = track;
         new AlertDialog.Builder(this).setTitle("Добавить в плейлист")
                 .setItems(names, (dialog, which) -> {
+                    if (which == names.length - 1) { createPlaylistDialog(playlistTrack); return; }
                     Playlist playlist = playlists.get(which);
-                    if (!playlist.ids.contains(track.uri)) playlist.ids.add(track.uri);
+                    if (!playlist.ids.contains(playlistTrack.uri)) playlist.ids.add(playlistTrack.uri);
                     savePlaylists(); renderPage();
                     Toast.makeText(this, "Трек добавлен в «" + playlist.name + "»", Toast.LENGTH_SHORT).show();
-                }).setNeutralButton("Создать плейлист", (dialog, which) -> createPlaylistDialog(track))
+                })
                 .setNegativeButton("Отмена", null).show();
+    }
+
+    private Track ensureOnlineTrackInLibrary(Track track) {
+        Track saved = findTrack(track.uri);
+        if (saved != null) return saved;
+        saved = new Track(track.uri, track.title, track.artist, track.album, track.provider, track.artworkUrl);
+        saved.online = true;
+        saved.previewOnly = track.previewOnly;
+        saved.previewUrl = track.previewUrl;
+        saved.duration = track.duration;
+        saved.orderNumber = track.orderNumber;
+        tracks.add(saved);
+        saveLibrary();
+        return saved;
     }
 
     private void playlistMenu(Playlist playlist) {
@@ -2663,16 +2940,13 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
         if (cached != null) return cached;
         if (track.artworkUrl != null && track.artworkUrl.startsWith("file:")) {
             try {
-                Bitmap local = BitmapFactory.decodeFile(Uri.parse(track.artworkUrl).getPath());
+                String path = Uri.parse(track.artworkUrl).getPath();
+                BitmapFactory.Options bounds = new BitmapFactory.Options();
+                bounds.inJustDecodeBounds = true;
+                BitmapFactory.decodeFile(path, bounds);
+                BitmapFactory.Options options = sampledOptions(bounds.outWidth, bounds.outHeight, 1200);
+                Bitmap local = BitmapFactory.decodeFile(path, options);
                 if (local != null) {
-                    int largest = Math.max(local.getWidth(), local.getHeight());
-                    if (largest > 512) {
-                        float scale = 512f / largest;
-                        Bitmap scaled = Bitmap.createScaledBitmap(local, Math.max(1, Math.round(local.getWidth() * scale)),
-                                Math.max(1, Math.round(local.getHeight() * scale)), true);
-                        if (scaled != local) local.recycle();
-                        local = scaled;
-                    }
                     artworkCache.put(track.uri, local);
                     return local;
                 }
@@ -2684,20 +2958,32 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
             retriever.setDataSource(this, Uri.parse(track.uri));
             byte[] data = retriever.getEmbeddedPicture();
             if (data == null || data.length == 0) return null;
-            Bitmap original = BitmapFactory.decodeByteArray(data, 0, data.length);
-            if (original == null) return null;
-            int largest = Math.max(original.getWidth(), original.getHeight());
-            Bitmap result = original;
-            if (largest > 256) {
-                float scale = 256f / largest;
-                result = Bitmap.createScaledBitmap(original, Math.max(1, Math.round(original.getWidth() * scale)),
-                        Math.max(1, Math.round(original.getHeight() * scale)), true);
-                if (result != original) original.recycle();
-            }
+            Bitmap result = decodeSampledArtwork(data, 1200);
+            if (result == null) return null;
             artworkCache.put(track.uri, result);
             return result;
         } catch (Exception ignored) { return null; }
         finally { try { retriever.release(); } catch (Exception ignored) { } }
+    }
+
+    private Bitmap decodeSampledArtwork(byte[] data, int maximumDimension) {
+        if (data == null || data.length == 0) return null;
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(data, 0, data.length, bounds);
+        BitmapFactory.Options options = sampledOptions(bounds.outWidth, bounds.outHeight, maximumDimension);
+        return BitmapFactory.decodeByteArray(data, 0, data.length, options);
+    }
+
+    private BitmapFactory.Options sampledOptions(int width, int height, int maximumDimension) {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        if (width <= 0 || height <= 0) return options;
+        int sample = 1;
+        int largest = Math.max(width, height);
+        while (largest / sample > maximumDimension) sample *= 2;
+        options.inSampleSize = sample;
+        return options;
     }
 
     private TextView label(String text, float size, int color, boolean bold) {
@@ -2711,6 +2997,7 @@ public class MainActivity extends Activity implements PlaybackService.Listener {
     private Button pill(String text, int fill, int color) {
         Button button = new Button(this);
         button.setText(text); button.setTextSize(12); button.setAllCaps(false); button.setTextColor(color);
+        button.setMinWidth(0); button.setMinimumWidth(0); button.setMinHeight(0); button.setMinimumHeight(0);
         button.setPadding(dp(10), 0, dp(10), 0);
         button.setBackground(roundRect(fill, dp(14), 0));
         return button;

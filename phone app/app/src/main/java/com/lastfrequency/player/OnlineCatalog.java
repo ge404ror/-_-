@@ -99,11 +99,12 @@ public final class OnlineCatalog {
             }
             YoutubeDLRequest request = new YoutubeDLRequest(searchUrl);
             request.addOption("--dump-single-json");
-            request.addOption("--flat-playlist");
+            // YouTube Music's flat entries often omit both the artist and album art.
+            if (!"youtube_music".equals(source)) request.addOption("--flat-playlist");
             request.addOption("--skip-download");
             request.addOption("--no-warnings");
             request.addOption("--ignore-errors");
-            request.addOption("--playlist-end", "20");
+            request.addOption("--playlist-end", "youtube_music".equals(source) ? "12" : "20");
             request.addOption("--socket-timeout", "15");
             try {
                 String output = YoutubeDL.getInstance().execute(request).getOut();
@@ -140,6 +141,17 @@ public final class OnlineCatalog {
         String searchKind = "playlist".equalsIgnoreCase(kind) ? "playlist" : "track";
         SearchResponse response = new SearchResponse();
         if (clean.isEmpty()) return response;
+        Set<String> requestedSources = new HashSet<>();
+        if ("all".equals(selected)) {
+            Collections.addAll(requestedSources, "youtube_music", "youtube", "soundcloud", "deezer", "apple");
+        } else {
+            for (String source : selected.split(",")) {
+                String key = source.trim();
+                if ("youtube_music".equals(key) || "youtube".equals(key) || "soundcloud".equals(key)
+                        || "deezer".equals(key) || "apple".equals(key)) requestedSources.add(key);
+            }
+        }
+        boolean broadSearch = requestedSources.size() > 1;
         if (clean.startsWith("https://") || clean.startsWith("http://")) {
             if (!PlatformCatalog.providerForUrl(clean).isEmpty()) {
                 if (PlatformCatalog.isPlaylistLink(clean)) {
@@ -166,17 +178,20 @@ public final class OnlineCatalog {
 
         ArrayList<String> sources = new ArrayList<>();
         if ("playlist".equals(searchKind)) {
-            if ("all".equals(selected) || "youtube_music".equals(selected) || "youtube".equals(selected)) sources.add("youtube");
-            if ("all".equals(selected) || "soundcloud".equals(selected)) sources.add("soundcloud");
-        } else if ("all".equals(selected)) {
-            sources.add("youtube_music"); sources.add("youtube"); sources.add("soundcloud");
-        } else if ("youtube_music".equals(selected) || "youtube".equals(selected) || "soundcloud".equals(selected)) {
-            sources.add(selected);
-        } else if ("deezer".equals(selected) || "apple".equals(selected)) {
-            sources.add(selected);
+            if (requestedSources.contains("youtube_music") || requestedSources.contains("youtube")) sources.add("youtube");
+            if (requestedSources.contains("soundcloud")) sources.add("soundcloud");
+            if (sources.isEmpty()) {
+                response.errors.add("В выбранных источниках поиск плейлистов недоступен.");
+                return response;
+            }
         } else {
-            response.errors.add("Выбери доступный источник поиска.");
-            return response;
+            if (requestedSources.contains("youtube_music")) sources.add("youtube_music");
+            if (requestedSources.contains("youtube")) sources.add("youtube");
+            if (requestedSources.contains("soundcloud")) sources.add("soundcloud");
+            if (sources.isEmpty() && !requestedSources.contains("deezer") && !requestedSources.contains("apple")) {
+                response.errors.add("Выбери доступный источник поиска.");
+                return response;
+            }
         }
 
         CompletionService<ProviderSearch> completed = new ExecutorCompletionService<>(GLOBAL_SEARCH_POOL);
@@ -218,15 +233,17 @@ public final class OnlineCatalog {
                 String id = item.optString("id", item.optString("url", ""));
                 String family = ("youtube".equals(source.provider) || "youtube_music".equals(source.provider)) ? "youtube" : source.provider;
                 if (id.isEmpty() || !seen.add(family + ":" + id.toLowerCase(Locale.ROOT))) continue;
-                if ("all".equals(selected) && providerCounts[rank] >= 7) continue;
+                if (broadSearch && providerCounts[rank] >= 7) continue;
                 response.items.add(item);
                 providerCounts[rank]++;
                 if (response.items.size() >= 20) return response;
             }
         }
-        if ("track".equals(searchKind) && response.items.size() < 20 && ("all".equals(selected) || "deezer".equals(selected) || "apple".equals(selected))) {
-            String[] previewSources = "apple".equals(selected) ? new String[]{"apple"}
-                    : "deezer".equals(selected) ? new String[]{"deezer"} : new String[]{"deezer", "apple"};
+        if ("track".equals(searchKind) && response.items.size() < 20
+                && (requestedSources.contains("deezer") || requestedSources.contains("apple"))) {
+            ArrayList<String> previewSources = new ArrayList<>();
+            if (requestedSources.contains("deezer")) previewSources.add("deezer");
+            if (requestedSources.contains("apple")) previewSources.add("apple");
             Set<String> seenPreview = new HashSet<>();
             for (JSONObject item : response.items) seenPreview.add(item.optString("url", "").toLowerCase(Locale.ROOT));
             for (String source : previewSources) {
@@ -508,11 +525,13 @@ public final class OnlineCatalog {
                 && !url.startsWith("http")) url = "https://www.youtube.com/watch?v=" + id;
         if (url.isEmpty()) return null;
         String artist = firstNonEmpty(metadataText(entry, "artist"), artistArray(entry.optJSONArray("artists")),
-                artistArray(entry.optJSONArray("artist_metadata")), metadataText(entry, "uploader"),
+                artistArray(entry.optJSONArray("artist_metadata")), metadataText(entry, "creator"),
+                metadataText(entry, "album_artist"), metadataText(entry, "uploader"),
                 metadataText(entry, "channel"), metadataText(entry, "uploader_id"), "Неизвестный автор");
         String album = firstNonEmpty(metadataText(entry, "album"), metadataText(entry, "playlist_title"));
-        String thumbnail = entry.optString("thumbnail", "");
-        if (thumbnail.isEmpty() && "youtube".equals(provider) && id.matches("[A-Za-z0-9_-]{11}")) {
+        String thumbnail = bestThumbnail(entry);
+        if (thumbnail.isEmpty() && ("youtube".equals(provider) || "youtube_music".equals(provider))
+                && id.matches("[A-Za-z0-9_-]{11}")) {
             thumbnail = "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg";
         }
         JSONObject result = new JSONObject();
@@ -528,6 +547,25 @@ public final class OnlineCatalog {
             result.put("source", providerName(provider));
         } catch (Exception ignored) { }
         return result;
+    }
+
+    private static String bestThumbnail(JSONObject entry) {
+        String bestUrl = entry.optString("thumbnail", "");
+        long bestArea = -1;
+        JSONArray thumbnails = entry.optJSONArray("thumbnails");
+        if (thumbnails == null) return bestUrl;
+        for (int i = 0; i < thumbnails.length(); i++) {
+            JSONObject item = thumbnails.optJSONObject(i);
+            if (item == null) continue;
+            String url = firstNonEmpty(item.optString("url", ""), item.optString("src", ""));
+            if (url.isEmpty()) continue;
+            long area = (long) item.optInt("width", 0) * item.optInt("height", 0);
+            if (area >= bestArea) {
+                bestArea = area;
+                bestUrl = url;
+            }
+        }
+        return bestUrl;
     }
 
     private static String metadataText(JSONObject object, String key) {
@@ -600,6 +638,34 @@ public final class OnlineCatalog {
         File destination = new File(music == null ? context.getFilesDir() : music, "Last Frequency");
         if (!destination.exists() && !destination.mkdirs()) throw new IllegalStateException("Не удалось создать папку загрузок");
         long startedAt = System.currentTimeMillis();
+        Function3<Float, Long, String, Unit> callback = (percent, eta, line) -> {
+            if (progress != null && percent != null) progress.onProgress(percent);
+            return Unit.INSTANCE;
+        };
+        String outputPath = new File(destination, "%(title).180B [%(id)s].%(ext)s").getAbsolutePath();
+        try {
+            YoutubeDL.getInstance().execute(downloadRequest(pageUrl, outputPath, false), "download-" + UUID.randomUUID(), false, callback);
+        } catch (Exception firstAttempt) {
+            String normalized = pageUrl == null ? "" : pageUrl.toLowerCase(Locale.ROOT);
+            boolean youtube = normalized.contains("youtube.com") || normalized.contains("youtu.be")
+                    || normalized.contains("music.youtube.com");
+            String message = firstAttempt.getMessage() == null ? "" : firstAttempt.getMessage();
+            if (!youtube || !message.contains("403")) throw firstAttempt;
+            try {
+                YoutubeDL.getInstance().execute(downloadRequest(pageUrl, outputPath, true), "download-" + UUID.randomUUID(), false, callback);
+            } catch (Exception retryError) {
+                throw new IllegalStateException("YouTube отклонил скачивание (HTTP 403). Повтор через другой способ тоже не сработал. Попробуй другой источник или повтори позже.", retryError);
+            }
+        }
+        File[] files = destination.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".mp3"));
+        File latest = null;
+        if (files != null) for (File file : files) if (file.lastModified() >= startedAt - 1000
+                && (latest == null || file.lastModified() > latest.lastModified())) latest = file;
+        if (latest == null) throw new IllegalStateException("Файл MP3 не появился. Источник мог запретить скачивание или потребовать авторизацию.");
+        return latest;
+    }
+
+    private static YoutubeDLRequest downloadRequest(String pageUrl, String outputPath, boolean alternateYoutubeClients) {
         YoutubeDLRequest request = new YoutubeDLRequest(pageUrl);
         request.addOption("-f", "bestaudio/best");
         request.addOption("--extract-audio");
@@ -610,18 +676,11 @@ public final class OnlineCatalog {
         request.addOption("--no-playlist");
         request.addOption("--no-warnings");
         request.addOption("--socket-timeout", "30");
-        request.addOption("-o", new File(destination, "%(title).180B [%(id)s].%(ext)s").getAbsolutePath());
-        String processId = "download-" + UUID.randomUUID();
-        Function3<Float, Long, String, Unit> callback = (percent, eta, line) -> {
-            if (progress != null && percent != null) progress.onProgress(percent);
-            return Unit.INSTANCE;
-        };
-        YoutubeDL.getInstance().execute(request, processId, false, callback);
-        File[] files = destination.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".mp3"));
-        File latest = null;
-        if (files != null) for (File file : files) if (file.lastModified() >= startedAt - 1000
-                && (latest == null || file.lastModified() > latest.lastModified())) latest = file;
-        if (latest == null) throw new IllegalStateException("Файл MP3 не появился. Источник мог запретить скачивание или потребовать авторизацию.");
-        return latest;
+        if (alternateYoutubeClients) {
+            request.addOption("--force-ipv4");
+            request.addOption("--extractor-args", "youtube:player_client=web_safari,android_vr");
+        }
+        request.addOption("-o", outputPath);
+        return request;
     }
 }

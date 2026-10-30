@@ -36,7 +36,7 @@ from mini_player import FloatingMiniPlayer
 
 logger = logging.getLogger("player")
 
-VERSION = "1.23-last-frequency"
+VERSION = "1.24-last-frequency"
 MAX_LAYERS = 8  # сколько треков можно играть одновременно в режиме «мульти-треки»
 APP_ID = "last-frequency"
 DEFAULT_PORT = 8775
@@ -63,6 +63,10 @@ _ONLINE_STREAM_HOSTS = (
 )
 _LYRICS_CACHE: dict[tuple, tuple[float, dict]] = {}
 _LYRICS_CACHE_LOCK = threading.Lock()
+GITHUB_RELEASES_URL = "https://api.github.com/repos/mivorababy/-_-/releases/latest"
+GITHUB_REPO_URL = "https://github.com/mivorababy/-_-"
+_UPDATE_CACHE = {"checked_at": 0.0, "payload": None}
+_UPDATE_CACHE_LOCK = threading.Lock()
 
 
 class _OnlineStreamDrmError(RuntimeError):
@@ -115,7 +119,7 @@ BG_DIR = PLAYER_DIR / "backgrounds"
 SETTINGS_FILE = PLAYER_DIR / "player_settings.json"
 CACHE_FILE = PLAYER_DIR / "library_cache.json"
 COVER_URL_FILE = PLAYER_DIR / "discord_covers.json"   # кэш: обложка -> временная ссылка
-PLAY_HISTORY_FILE = PLAYER_DIR / "play_history.json"   # последние полностью прослушанные треки
+PLAY_HISTORY_FILE = PLAYER_DIR / "play_history.json"   # статистика и недавние прослушивания
 CUSTOM_PLAYLISTS_FILE = PLAYER_DIR / "custom_playlists.json"
 REMOTE_FAVORITES_FILE = PLAYER_DIR / "remote_favorites.json"
 LOG_DIR = PLAYER_DIR / "logs"
@@ -157,7 +161,7 @@ def _ensure_bundled_sample_playlist() -> None:
         logger.warning("Не удалось установить тестовый плейлист: %s", error)
 
 _ensure_bundled_sample_playlist()
-MAX_JSON_BYTES = 1024 * 1024
+MAX_JSON_BYTES = 8 * 1024 * 1024
 
 # id темы -> (цвет фона, тёмная ли тема, акцент). Заголовок окна красится от АКЦЕНТА темы,
 # слегка притемнённого фоном: розовый для «Сердечки», оранжевый для «Огонь» и т.д.
@@ -372,7 +376,7 @@ DEFAULT_SETTINGS = {
     "theme": "midnight",
     "accent": "",
     "maretu_bg_opacity": 20,
-    "background": {"type": "theme", "image": "", "color": "#12131c", "blur": 18, "dim": 35, "animate": True, "color2": "#1a1d3a", "gradient_style": "linear", "gradient_angle": 135},
+    "background": {"type": "theme", "image": "", "color": "#12131c", "blur": 18, "dim": 35, "animate": True, "color2": "#1a1d3a", "gradient_style": "linear", "gradient_angle": 135, "crop_x": 50, "crop_y": 50, "zoom": 100},
     "glass": 10,
     "panel_blur": 18,
     "ui_scale": 100,
@@ -385,6 +389,8 @@ DEFAULT_SETTINGS = {
     "radius": 32,
     "row_scale": 100,
     "font": "bold",
+    "search_provider": "all",
+    "playlist_track_order": {},
     "density": "comfortable",
     "visualizer": "bars",
     "visualizer_position": "background",   # background — на фоне окна, bar — в нижней панели между управлением и громкостью
@@ -432,6 +438,52 @@ def _num(value, low, high, default):
     except (TypeError, ValueError):
         return default
     return max(low, min(high, number))
+
+
+def _version_numbers(value: str) -> tuple[int, ...]:
+    parts = [int(part) for part in re.findall(r"\d+", str(value or ""))]
+    while len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    return tuple(parts)
+
+
+def github_update_status(force: bool = False) -> dict:
+    """Return the newest public GitHub release, cached to avoid repeated requests."""
+    now = time.monotonic()
+    with _UPDATE_CACHE_LOCK:
+        if not force and _UPDATE_CACHE["payload"] is not None and now - _UPDATE_CACHE["checked_at"] < 6 * 60 * 60:
+            return dict(_UPDATE_CACHE["payload"])
+        payload = {"available": False, "current": VERSION, "latest": "", "url": GITHUB_REPO_URL,
+                   "download_url": "", "name": "", "notes": ""}
+        try:
+            request = urllib.request.Request(GITHUB_RELEASES_URL, headers={
+                "Accept": "application/vnd.github+json",
+                "User-Agent": f"LastFrequency/{VERSION}",
+                "X-GitHub-Api-Version": "2022-11-28",
+            })
+            with urllib.request.urlopen(request, timeout=5) as response:
+                release = json.loads(response.read(1024 * 1024).decode("utf-8"))
+            tag = str(release.get("tag_name") or "").strip()
+            current_numbers, latest_numbers = _version_numbers(VERSION), _version_numbers(tag)
+            payload.update({
+                "available": bool(current_numbers and latest_numbers and latest_numbers > current_numbers),
+                "latest": tag,
+                "url": str(release.get("html_url") or GITHUB_REPO_URL),
+                "name": str(release.get("name") or tag)[:180],
+                "notes": str(release.get("body") or "")[:6000],
+            })
+            assets = [item for item in release.get("assets", []) if isinstance(item, dict)]
+            executables = [item for item in assets if str(item.get("name") or "").lower().endswith(".exe")]
+            preferred = next((item for item in executables if "setup" in str(item.get("name") or "").lower()), None)
+            preferred = preferred or next((item for item in executables if str(item.get("name") or "").lower() == "lastfrequency.exe"), None)
+            preferred = preferred or (executables[0] if executables else None)
+            download_url = str((preferred or {}).get("browser_download_url") or "")
+            if download_url.startswith("https://github.com/"):
+                payload["download_url"] = download_url
+        except Exception as error:
+            logger.info("Проверка обновлений GitHub не удалась: %s", type(error).__name__)
+        _UPDATE_CACHE.update({"checked_at": now, "payload": payload})
+        return dict(payload)
 
 
 def _bool(value, default):
@@ -520,7 +572,7 @@ def _sanitize_play_history(items) -> list:
     if not isinstance(items, list):
         return []
     result = {}
-    for item in items[:100]:
+    for item in items[:2000]:
         if not isinstance(item, dict):
             continue
         track_id = str(item.get("id") or "").strip()[:200]
@@ -535,6 +587,10 @@ def _sanitize_play_history(items) -> list:
             duration = max(0, min(int(float(item.get("dur") or 0)), 86400))
         except (TypeError, ValueError, OverflowError):
             duration = 0
+        try:
+            count = max(1, min(int(item.get("count") or 1), 1000000000))
+        except (TypeError, ValueError, OverflowError):
+            count = 1
         url = str(item.get("url") or "")[:2000]
         if url and not url.startswith("https://"):
             url = ""
@@ -559,11 +615,17 @@ def _sanitize_play_history(items) -> list:
             "dur": duration,
             "cover": bool(item.get("cover")),
             "at": played_at,
+            "count": count,
         }
         key = (track_id, remote)
-        if key not in result or clean["at"] >= result[key]["at"]:
+        previous = result.get(key)
+        if previous:
+            clean["count"] = max(clean["count"], previous["count"])
+        if previous is None or clean["at"] >= previous["at"]:
             result[key] = clean
-    return sorted(result.values(), key=lambda entry: entry["at"], reverse=True)[:5]
+        else:
+            result[key]["count"] = max(result[key]["count"], clean["count"])
+    return sorted(result.values(), key=lambda entry: entry["at"], reverse=True)[:2000]
 
 
 def _read_play_history() -> list:
@@ -578,9 +640,12 @@ def _merge_play_history(items) -> list:
     merged = {}
     for item in _read_play_history() + _sanitize_play_history(items):
         key = (item["id"], bool(item["remote"]))
-        if key not in merged or item["at"] >= merged[key]["at"]:
-            merged[key] = item
-    return sorted(merged.values(), key=lambda entry: entry["at"], reverse=True)[:5]
+        previous = merged.get(key)
+        if previous:
+            item = {**(previous if previous["at"] > item["at"] else item),
+                    "count": max(previous["count"], item["count"])}
+        merged[key] = item
+    return sorted(merged.values(), key=lambda entry: entry["at"], reverse=True)[:2000]
 
 
 def _write_play_history(items) -> bool:
@@ -719,6 +784,9 @@ def sanitize_settings(data: dict, base: dict) -> dict:
         "blur": int(_num(bg_in.get("blur"), 0, 120, bg_base["blur"])),
         "dim": int(_num(bg_in.get("dim"), 0, 90, bg_base["dim"])),
         "animate": _bool(bg_in.get("animate"), bg_base["animate"]),
+        "crop_x": int(_num(bg_in.get("crop_x"), 0, 100, bg_base.get("crop_x", 50))),
+        "crop_y": int(_num(bg_in.get("crop_y"), 0, 100, bg_base.get("crop_y", 50))),
+        "zoom": int(_num(bg_in.get("zoom"), 100, 300, bg_base.get("zoom", 100))),
     }
     out["glass"] = int(_num(data.get("glass"), 0, 95, base["glass"]))
     out["panel_blur"] = int(_num(data.get("panel_blur"), 0, 80, base.get("panel_blur", 18)))
@@ -737,7 +805,17 @@ def sanitize_settings(data: dict, base: dict) -> dict:
     out["dvd_rotate"] = _bool(data.get("dvd_rotate"), base.get("dvd_rotate", False))
     out["dvd_rotation_speed"] = int(_num(data.get("dvd_rotation_speed"), 1, 40, base.get("dvd_rotation_speed", 1)))
     out["radius"] = int(_num(data.get("radius"), 0, 64, base["radius"]))
-    out["font"] = _choice(data.get("font"), ("system", "serif", "mono", "rounded", "quicksand", "pacifico", "bold"), base["font"])
+    out["font"] = _choice(data.get("font"), ("system", "serif", "mono", "rounded", "quicksand", "pacifico", "bold", "roboto", "opensans", "montserrat", "lato", "inter"), base["font"])
+    out["search_provider"] = _choice(data.get("search_provider"), ("all", "youtube_music", "youtube", "soundcloud"), base.get("search_provider", "all"))
+    raw_track_orders = data.get("playlist_track_order", base.get("playlist_track_order", {}))
+    clean_track_orders = {}
+    if isinstance(raw_track_orders, dict):
+        for key, ids in list(raw_track_orders.items())[:200]:
+            if not isinstance(key, str) or not isinstance(ids, list):
+                continue
+            clean_track_orders[key[:300]] = [track_id for track_id in ids[:10000]
+                                              if isinstance(track_id, str) and _ID_RE.fullmatch(track_id)]
+    out["playlist_track_order"] = clean_track_orders
     out["density"] = _choice(data.get("density"), ("comfortable", "compact"), base["density"])
     out["visualizer"] = _choice(data.get("visualizer"), ("off", "bars", "wave", "heart"), "bars" if base.get("visualizer") == "fire" else base["visualizer"])
     out["visualizer_position"] = _choice(data.get("visualizer_position"), ("background", "bar"), base.get("visualizer_position", "background"))
@@ -1866,10 +1944,14 @@ def load_global_playlist(url: str) -> dict:
             "thumbnail": playlist_thumbnail, "url": url, "tracks": tracks, "track_count": len(tracks)}
 
 
-def load_radio_queue(seed_url: str, title: str = "", artist: str = "", limit: int = 30) -> dict:
+def load_radio_queue(seed_url: str, title: str = "", artist: str = "", limit: int = 30,
+                     provider: str = "all") -> dict:
     """Resolve a YouTube-generated mix, falling back to a bounded music search."""
     _require_online_search_enabled()
     limit = max(1, min(30, int(limit or 30)))
+    provider = str(provider or "all").strip().lower()
+    if provider not in {"all", "youtube_music", "youtube", "soundcloud"}:
+        provider = "all"
     seed_url = str(seed_url or "").strip()[:2000]
     title, artist = str(title or "").strip()[:180], str(artist or "").strip()[:180]
     video_id = ""
@@ -1888,7 +1970,7 @@ def load_radio_queue(seed_url: str, title: str = "", artist: str = "", limit: in
                "extract_flat": "in_playlist", "playlistend": 60,
                "socket_timeout": 18, "noplaylist": False}
     entries = []
-    if video_id:
+    if video_id and provider in ("all", "youtube"):
         mix_url = f"https://www.youtube.com/watch?v={video_id}&list=RD{video_id}"
         try:
             with ytdlp.YoutubeDL(options) as ydl:
@@ -1903,6 +1985,51 @@ def load_radio_queue(seed_url: str, title: str = "", artist: str = "", limit: in
         queries.extend((f"{artist} {title} similar songs", f"{artist} related music", f"{artist} songs"))
     elif base_query:
         queries.extend((f"{base_query} similar songs", f"{base_query} music"))
+
+    non_music = re.compile(r"\b(reaction|reacts|review|tutorial|gameplay|walkthrough|podcast|news|interview|vlog|shorts?|trailer|full movie|episode|documentary|обзор|реакци\w*|урок\w*|обучени\w*|прохождени\w*|подкаст\w*|новост\w*|интервью|влог\w*|трейлер|фильм|серия|документал\w*)\b", re.I)
+    if provider in {"youtube_music", "soundcloud"}:
+        results, seen = [], set()
+        seed_title = _music_match_text(title)
+        seed_artist = _music_match_text(artist)
+        for query in queries:
+            if len(results) >= limit:
+                break
+            try:
+                found = search_remote(provider, query, require_downloader=False)
+            except Exception as error:
+                logger.info("Поиск радио в %s не удался: %s", provider, type(error).__name__)
+                continue
+            for item in found:
+                if not isinstance(item, dict):
+                    continue
+                track = dict(item)
+                track_id = str(track.get("id") or track.get("url") or "").strip()
+                track_title = str(track.get("title") or "").strip()
+                track_artist = str(track.get("artist") or "").strip()
+                if not track_id or not track_title or non_music.search(track_title):
+                    continue
+                try:
+                    duration = float(track.get("duration") or track.get("dur") or 0)
+                except (TypeError, ValueError):
+                    duration = 0
+                if duration > 900:
+                    continue
+                title_key = _music_match_text(track_title)
+                artist_key = _music_match_text(track_artist)
+                if title_key == seed_title and (not seed_artist or not artist_key or artist_key == seed_artist):
+                    continue
+                key = (provider, track_id.casefold())
+                if key in seen:
+                    continue
+                seen.add(key)
+                track.update({"id": track_id, "provider": provider,
+                              "source": "YouTube Music" if provider == "youtube_music" else "SoundCloud",
+                              "preview_only": False})
+                results.append(track)
+                if len(results) >= limit:
+                    break
+        return {"results": results, "seed": video_id, "requested": limit, "provider": provider}
+
     for query in queries:
         if len(entries) >= limit * 3:
             break
@@ -1913,8 +2040,8 @@ def load_radio_queue(seed_url: str, title: str = "", artist: str = "", limit: in
         except Exception as error:
             logger.info("Поиск похожих треков для радио не удался: %s", type(error).__name__)
 
-    non_music = re.compile(r"\b(reaction|reacts|review|tutorial|gameplay|walkthrough|podcast|news|interview|vlog|shorts?|trailer|full movie|episode|documentary|обзор|реакци\w*|урок\w*|обучени\w*|прохождени\w*|подкаст\w*|новост\w*|интервью|влог\w*|трейлер|фильм|серия|документал\w*)\b", re.I)
     results, deferred, seen, artist_counts = [], [], {video_id} if video_id else set(), {}
+    source_limit = max(1, (limit + 2) // 3) if provider == "all" else limit
     for item in entries:
         raw_id = str(item.get("id") or "")
         if not re.fullmatch(r"[A-Za-z0-9_-]{11}", raw_id):
@@ -1943,11 +2070,56 @@ def load_radio_queue(seed_url: str, title: str = "", artist: str = "", limit: in
         results.append(track)
         if artist_key:
             artist_counts[artist_key] = artist_counts.get(artist_key, 0) + 1
-        if len(results) >= limit:
+        if len(results) >= source_limit:
             break
-    if len(results) < limit:
-        results.extend(deferred[:limit-len(results)])
-    return {"results": results, "seed": video_id, "requested": limit}
+    if len(results) < source_limit:
+        results.extend(deferred[:source_limit-len(results)])
+
+    if provider == "all" and queries and len(results) < limit:
+        seed_title, seed_artist = _music_match_text(title), _music_match_text(artist)
+        song_keys = [(_music_match_text(item.get("title") or ""), _music_match_text(item.get("artist") or ""))
+                     for item in results]
+        source_ids = {(str(item.get("provider") or "youtube"), str(item.get("id") or "").casefold())
+                      for item in results}
+        for source in ("youtube_music", "soundcloud"):
+            source_count = 0
+            try:
+                found = search_remote(source, queries[0], require_downloader=False)
+            except Exception as error:
+                logger.info("Дополнительный поиск радио в %s не удался: %s", source, type(error).__name__)
+                continue
+            for item in found:
+                if len(results) >= limit or source_count >= source_limit or not isinstance(item, dict):
+                    break
+                track = dict(item)
+                track_id = str(track.get("id") or track.get("url") or "").strip()
+                track_title = str(track.get("title") or "").strip()
+                track_artist = str(track.get("artist") or "").strip()
+                if not track_id or not track_title or not track.get("url") or non_music.search(track_title):
+                    continue
+                try:
+                    duration = float(track.get("duration") or track.get("dur") or 0)
+                except (TypeError, ValueError):
+                    duration = 0
+                if duration > 900:
+                    continue
+                title_key, artist_key = _music_match_text(track_title), _music_match_text(track_artist)
+                if title_key == seed_title and (not seed_artist or not artist_key or artist_key == seed_artist):
+                    continue
+                if any(title_key == old_title and (not artist_key or not old_artist or artist_key == old_artist)
+                       for old_title, old_artist in song_keys):
+                    continue
+                key = (source, track_id.casefold())
+                if key in source_ids:
+                    continue
+                source_ids.add(key)
+                song_keys.append((title_key, artist_key))
+                track.update({"id": track_id, "provider": source,
+                              "source": "YouTube Music" if source == "youtube_music" else "SoundCloud",
+                              "preview_only": False})
+                results.append(track)
+                source_count += 1
+    return {"results": results, "seed": video_id, "requested": limit, "provider": provider}
 
 
 def search_global(query: str, provider: str = "all", kind: str = "track") -> dict:
@@ -4227,6 +4399,13 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/remote-favorites":
                 with _REMOTE_FAVORITES_LOCK:
                     return self._json({"items": _read_remote_favorites()})
+            if path == "/api/sample-playlist":
+                sample_dir = MUSIC_DIR / "Добро и позитив"
+                marker = sample_dir / ".last_frequency_sample_playlist"
+                return self._json({"available": bool(sample_dir.is_dir() and not sample_dir.is_symlink() and marker.is_file())})
+            if path == "/api/update-check":
+                force = str((query.get("force") or [""])[0]).lower() in ("1", "true", "yes")
+                return self._json(github_update_status(force=force))
             if path == "/api/state":
                 return self._json(self._state_payload())
             if path == "/api/settings":
@@ -4402,7 +4581,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(_read_custom_playlists())
         if path == "/api/play-history":
             items = data.get("items")
-            if not isinstance(items, list) or len(items) > 100:
+            if not isinstance(items, list) or len(items) > 2000:
                 return self._fail(400, "Некорректная история прослушивания")
             with _PLAY_HISTORY_LOCK:
                 merged = _merge_play_history(items)
@@ -4443,7 +4622,8 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 return self._json(load_radio_queue(str(data.get("url") or ""),
                                                    str(data.get("title") or ""),
-                                                   str(data.get("artist") or ""), 30))
+                                                   str(data.get("artist") or ""), 30,
+                                                   str(data.get("provider") or "all")))
             except Exception as error:
                 logger.info("Не удалось собрать радио-очередь: %s", type(error).__name__)
                 return self._fail(400, str(error)[:300])
@@ -5132,7 +5312,9 @@ def _mini_visibility_watchdog():
             else:
                 hwnd = _NATIVE_HWND or find_player_hwnd(include_hidden=True)
                 visible = bool(hwnd and ctypes.windll.user32.IsWindowVisible(hwnd))
-                if visible or not _MINI_BACKGROUND_REQUESTED or not _mini_get_track():
+                minimized = bool(hwnd and ctypes.windll.user32.IsIconic(hwnd))
+                in_background = _MINI_BACKGROUND_REQUESTED and (not visible or minimized)
+                if not in_background or not _mini_get_track():
                     _MINI_PLAYER.hide()
                 elif not _MINI_PLAYER._visible:
                     _MINI_PLAYER.show()
@@ -5247,9 +5429,11 @@ def _move_native_window(x, y) -> bool:
 
 def _perform_window_action(action: str) -> bool:
     """Run custom title-bar actions, using Win32 for reliable native dragging."""
-    global _NATIVE_IS_MAXIMIZED
+    global _NATIVE_IS_MAXIMIZED, _MINI_BACKGROUND_REQUESTED
     if action not in {"minimize", "maximize", "close", "drag"}:
         return False
+    if action == "minimize":
+        _MINI_BACKGROUND_REQUESTED = True
     window = _NATIVE_WINDOW
     if window is not None:
         try:
@@ -5400,8 +5584,11 @@ def run_native_window(url: str):
         _apply_native_window_corners(_NATIVE_HWND)
 
     def on_restored():
-        global _NATIVE_IS_MAXIMIZED
+        global _NATIVE_IS_MAXIMIZED, _MINI_BACKGROUND_REQUESTED
         _NATIVE_IS_MAXIMIZED = False
+        _MINI_BACKGROUND_REQUESTED = False
+        if _MINI_PLAYER is not None:
+            _MINI_PLAYER.hide()
         window.maximized = False
         _apply_native_window_corners(_NATIVE_HWND)
 

@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700;900&family=Montserrat:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700;800&family=Open+Sans:wght@400;600;700;800&family=Pacifico&family=Quicksand:wght@400;500;600;700&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg1:#0f1020;--bg2:#1a1d3a;--bg3:#2b1d47;
@@ -347,6 +347,17 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
 @media(max-width:760px){.setup-dialog{width:96vw;height:96vh;padding:15px}.setup-theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.global-search .global-kind-select,.global-search .global-provider-select{flex:1;min-width:0}.np .card{padding:18px}.np-media .cover{width:min(46vw,25vh,220px);max-width:220px}.np-details{overflow:auto}}
 @media(max-width:700px){.np .card{padding:62px 18px 16px;overflow:hidden}.np .cover{width:min(40vw,22vh,190px);max-width:190px}.np-details{overflow:hidden}}
 </style>
+<style>
+.row{height:auto;min-height:max(calc(var(--row-h) * var(--row-scale)),calc(38px * var(--track-scale) + 10px));contain-intrinsic-size:auto max(calc(var(--row-h) * var(--row-scale)),calc(38px * var(--track-scale) + 10px));padding-block:4px}
+.compact .row{min-height:max(calc(var(--row-h) * var(--row-scale)),calc(26px * var(--track-scale) + 10px));contain-intrinsic-size:auto max(calc(var(--row-h) * var(--row-scale)),calc(26px * var(--track-scale) + 10px))}
+.global-results .home-track{min-height:max(calc(58px * var(--row-scale)),calc(54px * var(--track-scale) + 12px))}
+.row.queue-row,.row.playlist-track-draggable{cursor:grab}.row.queue-row:not([draggable]){cursor:default}.row.queue-row:active,.row.playlist-track-draggable:active{cursor:grabbing}.row.dragging{opacity:.4}.row.drop-target{outline:1px solid var(--accent);background:rgba(var(--accent-rgb),.1)}
+.row>.queue-remove{flex:0 0 32px;color:var(--muted);opacity:.72}.row>.queue-remove:hover{color:#ff6477;background:rgba(239,68,68,.2);opacity:1}
+.row.queue-played{opacity:.58}.row.queue-played:hover{opacity:.84}
+.bg-crop-preview{position:relative;box-sizing:border-box;width:100%;max-width:100%;max-height:280px;min-height:150px;aspect-ratio:16/9;margin-inline:auto;overflow:hidden;border:1px solid rgba(var(--line-rgb),.2);border-radius:14px;background:#090a10;box-shadow:inset 0 0 24px rgba(0,0,0,.3);cursor:grab;touch-action:none;user-select:none}.bg-crop-preview:active,.bg-crop-preview.dragging{cursor:grabbing}.bg-crop-image{position:absolute;inset:0;background-position:50% 50%;background-size:cover;background-repeat:no-repeat;transform-origin:center;will-change:transform}.bg-crop-grid{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent 33.1%,rgba(255,255,255,.55) 33.3%,transparent 33.6%,transparent 66.4%,rgba(255,255,255,.55) 66.7%,transparent 66.9%),linear-gradient(0deg,transparent 33.1%,rgba(255,255,255,.55) 33.3%,transparent 33.6%,transparent 66.4%,rgba(255,255,255,.55) 66.7%,transparent 66.9%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.58)}
+.top-listened{display:grid;gap:5px}.top-listened-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(var(--line-rgb),.045)}.top-listened-rank,.top-listened-count{font-variant-numeric:tabular-nums;color:var(--muted)}.top-listened-title{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.top-listened-sub{font-size:12px;color:var(--muted);margin-top:3px}.top-listened-empty{padding:16px;border:1px dashed rgba(var(--line-rgb),.15);border-radius:12px;color:var(--muted);line-height:1.5}
+.sample-delete{width:28px;height:28px;flex:none;color:var(--muted)}.sample-delete:hover{color:#ff6477;background:rgba(239,68,68,.2)}
+</style>
 <link rel="icon" href="/favicon.ico?v=5" type="image/x-icon">
 </head>
 <body>
@@ -501,6 +512,7 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
       <button class="tab" data-tab="multi"><span data-icon="layers"></span>Мульти-треки</button>
       <button class="tab" data-tab="discord"><span data-icon="note"></span>Discord</button>
       <button class="tab" data-tab="misc"><span data-icon="gear"></span>Прочее</button>
+      <button class="tab" data-tab="stats"><span data-icon="clock"></span>Частые треки</button>
     </div>
     <div class="pane">
       <button class="iconbtn closex" id="settingsClose" data-icon="close" title="Закрыть (Esc)"></button>
@@ -521,7 +533,7 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
         <div class="field"><div class="lab">Акцентный цвет<small>Кнопки, полоски, подсветка. «Тема» — цвет из выбранной темы.</small></div>
           <div class="ctl"><input type="color" id="accent"><button class="btn small" id="accentReset">Как в теме</button></div></div>
         <div class="field"><div class="lab">Шрифт</div><div class="ctl"><select class="select" id="font">
-          <option value="system">Системный</option><option value="rounded">Округлый</option><option value="quicksand">Quicksand ♡</option><option value="pacifico">Pacifico ✿</option><option value="bold">Bold (жирный)</option><option value="serif">С засечками</option><option value="mono">Моно</option></select></div></div>
+          <option value="system">Системный</option><option value="inter">Inter</option><option value="roboto">Roboto</option><option value="opensans">Open Sans</option><option value="montserrat">Montserrat</option><option value="lato">Lato</option><option value="rounded">Округлый</option><option value="quicksand">Quicksand ♡</option><option value="pacifico">Pacifico ✿</option><option value="bold">Bold (жирный)</option><option value="serif">С засечками</option><option value="mono">Моно</option></select></div></div>
         <h4>Форма</h4>
         <div class="field"><div class="lab">Скругление углов</div><div class="ctl"><input type="range" id="radius" min="0" max="32"><span class="val" id="radiusV"></span></div></div>
         <div class="field"><div class="lab">Прозрачность панелей<small>0% убирает цветную заливку панели.</small></div><div class="ctl"><input type="range" id="glass" min="0" max="95"><span class="val" id="glassV"></span></div></div>
@@ -558,9 +570,18 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
         </div>
         <div id="customGradientBox" class="hidden"><div class="field"><div class="lab">Первый цвет</div><div class="ctl"><input type="color" id="gradientColor1"></div></div><div class="field"><div class="lab">Второй цвет</div><div class="ctl"><input type="color" id="gradientColor2"></div></div><div class="field"><div class="lab">Вид градиента</div><div class="ctl"><select class="select" id="gradientStyle"><option value="linear">Линейный</option><option value="radial">Радиальный</option><option value="conic">Конусный</option></select></div></div><div class="field"><div class="lab">Направление</div><div class="ctl"><input type="range" id="gradientAngle" min="0" max="360"><span class="val" id="gradientAngleV"></span></div></div></div>
         <div class="field" id="bgColorRow"><div class="lab">Цвет фона</div><div class="ctl"><input type="color" id="bgColor"></div></div>
+        <div id="bgCropBox" class="hidden">
+          <h4>Обрезка фотографии</h4>
+          <div class="note">Перетаскивай изображение в окне кадрирования. Колесо мыши приближает и отдаляет кадр.</div>
+          <div class="bg-crop-preview" id="bgCropPreview" title="Перетащи изображение для кадрирования"><div class="bg-crop-image" id="bgCropImage"></div><div class="bg-crop-grid"></div></div>
+          <div class="ctl" style="justify-content:flex-end;margin:8px 0"><button type="button" class="btn small" id="bgCropReset">Сбросить кадр</button></div>
+          <div class="field"><div class="lab">По горизонтали</div><div class="ctl"><input type="range" id="bgCropX" min="0" max="100" step="1"><span class="val" id="bgCropXV"></span></div></div>
+          <div class="field"><div class="lab">По вертикали</div><div class="ctl"><input type="range" id="bgCropY" min="0" max="100" step="1"><span class="val" id="bgCropYV"></span></div></div>
+        <div class="field"><div class="lab">Масштаб кадра</div><div class="ctl"><input type="range" id="bgZoom" min="100" max="300" step="1"><span class="val" id="bgZoomV"></span></div></div>
+        </div>
         <div id="bgImageBox">
           <h4>Картинки</h4>
-          <div class="note">Загруженные картинки хранятся в папке <b>backgrounds</b> рядом с плеером. Можно jpg, png, webp, gif до 25 МБ.</div>
+          <div class="note">Изображения и видео хранятся в папке <b>backgrounds</b> рядом с плеером. Поддерживаются jpg, png, webp, gif, mp4 и webm до 100 МБ.</div>
           <div class="gallery" id="gallery"></div>
           <div style="margin-top:10px"><button class="btn small" id="bgUpload"><span data-icon="plus"></span>Загрузить картинку…</button><input type="file" id="bgFile" accept="image/*" class="hidden"></div>
         </div>
@@ -638,7 +659,7 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
         <div class="field"><div class="lab">Скорость вращения</div><div class="ctl"><input type="range" id="dvdRotationSpeed" min="1" max="20" step="1"><span class="val" id="dvdRotationSpeedV"></span></div></div>
 
         <h4>Работа плеера</h4>
-        <div class="field"><div class="lab">Мини-плеер при сворачивании в фон<small>Появится, когда главное окно будет закрыто крестиком и останется в трее. Размер и прозрачность меняются прямо в мини-плеере кнопками на нём.</small></div><div class="ctl"><label class="switch"><input type="checkbox" id="miniEnabled"><span></span></label></div></div>
+        <div class="field"><div class="lab">Показывать мини-плеер, когда окно свернуто или скрыто<small>Он появится при сворачивании или в трее и сам исчезнет, когда ты вернёшься в главное окно.</small></div><div class="ctl"><label class="switch"><input type="checkbox" id="miniEnabled"><span></span></label></div></div>
         <div class="field"><div class="lab">Вид мини-плеера<small>Расширенный — существующее окно с выбором плейлистов и дополнительными кнопками. Компактный — узкая панель с обложкой и основными кнопками, как на примере.</small></div><div class="ctl"><select class="select" id="miniStyle"><option value="standard">Расширенный</option><option value="compact">Компактная панель</option></select></div></div>
         <div class="field"><div class="lab">Размер мини-окна<small>Настрой размер компактного окна здесь, без кнопок внутри мини-плеера.</small></div><div class="ctl"><input type="range" id="miniScale" min="50" max="180" step="5"><span class="val" id="miniScaleV"></span></div></div>
         <div class="field"><div class="lab">Расположение мини-плеера</div><div class="ctl"><select class="select" id="miniPosition"><option value="top-left">Сверху слева</option><option value="top-right">Сверху справа</option><option value="bottom-left">Снизу слева</option><option value="bottom-right">Снизу справа</option><option value="custom">Сохранённое место</option></select></div></div>
@@ -660,6 +681,11 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
         </div>
         <h4>О плеере</h4>
         <div class="note" id="about"></div>
+      </section>
+      <section data-pane="stats" class="hidden">
+        <h4>Самые прослушиваемые треки</h4>
+        <div class="note" style="margin-bottom:12px">Засчитывается прослушивание от 30 секунд (или половины короткого трека). Радио использует первые 10 треков, которые ты слушал за последние 10,5 дней.</div>
+        <div class="top-listened" id="listeningStats"></div>
       </section>
     </div>
   </div>
@@ -695,6 +721,7 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
           <div class="setup-source-add"><input class="text" id="wizardExtraSource" placeholder="Путь к папке с музыкой"><button class="btn small" id="wizardBrowseSource">Обзор…</button><button class="btn small" id="wizardAddSource">Добавить</button></div>
           <div id="wizardSourceList" class="setup-source-list"></div>
           <h4>Тестовый плейлист</h4><button class="setup-sample" id="wizardOpenSample"><span class="setup-note">♫</span><span><b>Добро и позитив</b><small>10 треков для проверки плеера</small></span><span>Открыть →</span></button>
+          <label class="setup-check"><input type="checkbox" id="wizardKeepSample" checked><span>Оставить тестовый плейлист в библиотеке</span></label>
           <div id="wizardSampleTracks" class="setup-sample-tracks"></div>
         </section>
         <section data-setup-step="3" class="hidden">
@@ -941,6 +968,11 @@ const FONTS = {
   rounded: '"Nunito","Varela Round","Segoe UI Variable Display","Trebuchet MS",system-ui,sans-serif',
   quicksand: '"Quicksand",system-ui,sans-serif',
   pacifico: '"Pacifico",cursive',
+  roboto: '"Roboto",system-ui,sans-serif',
+  opensans: '"Open Sans",system-ui,sans-serif',
+  montserrat: '"Montserrat",system-ui,sans-serif',
+  lato: '"Lato",system-ui,sans-serif',
+  inter: '"Inter",system-ui,sans-serif',
   bold: '"Quicksand",system-ui,sans-serif',
   serif: 'Georgia,"Times New Roman",serif',
   mono: '"Cascadia Code","JetBrains Mono",Consolas,monospace',
@@ -1185,7 +1217,7 @@ function importCustomPlaylistFile(file) {
 
 /* ============================ состояние ============================ */
 function loadPlaybackHistory() {
-  try { const value=JSON.parse(localStorage.getItem("last-frequency.play-history.v2")||"[]"); return Array.isArray(value)?value.slice(0,5):[]; }
+  try { const value=JSON.parse(localStorage.getItem("last-frequency.play-history.v2")||"[]"); return Array.isArray(value)?value.slice(0,2000):[]; }
   catch (_) { return []; }
 }
 function mergePlaybackHistory(...lists) {
@@ -1193,9 +1225,10 @@ function mergePlaybackHistory(...lists) {
   for(const list of lists) for(const item of Array.isArray(list)?list:[]) {
     if(!item||typeof item.id!=="string"||!item.id)continue;
     const key=item.id+"\u0000"+(item.remote?"1":"0"),previous=merged.get(key);
-    if(!previous||Number(item.at||0)>=Number(previous.at||0))merged.set(key,item);
+    const newest=!previous||Number(item.at||0)>=Number(previous.at||0)?item:previous;
+    merged.set(key,{...newest,count:Math.max(1,Number(item.count)||1,Number(previous?.count)||1)});
   }
-  return Array.from(merged.values()).sort((a,b)=>Number(b.at||0)-Number(a.at||0)).slice(0,5);
+  return Array.from(merged.values()).sort((a,b)=>Number(b.at||0)-Number(a.at||0)).slice(0,2000);
 }
 function loadRemoteFavoriteItems() {
   try {
@@ -1214,9 +1247,9 @@ const S = {
   tracks: [], byId: new Map(), playlists: [], customPlaylists: loadCustomPlaylists(), counts: {}, scanning: false, libVersion: -1, libraryLoaded: false,
   view: { type: "home", key: "" }, search: "", sort: "default",
   selectMode: false, selected: new Set(),
-  baseQueue: [], queue: [], qpos: -1, current: null, durCache: {}, errorStreak: 0,
+  baseQueue: [], queue: [], qpos: -1, queueSource: "", current: null, durCache: {}, errorStreak: 0,
   onlineTracks: new Map(), onlinePlaylists: new Map(), currentGlobalResults: [], playHistory: loadPlaybackHistory(), remoteFavorites: loadRemoteFavorites(), remoteFavoriteTracks: new Map(loadRemoteFavoriteItems().map(item=>[item.id,item])), remoteQueueActive: false, remoteLoadToken: 0,
-  radioEnabled: false, radioLoading: false, radioSeen: new Set(), radioSeenOrder: [], radioQueue: [],
+  radioEnabled: false, radioLoading: false, radioSeen: new Set(), radioSeenOrder: [], radioQueue: [], samplePlaylistAvailable: false,
   layers: [], ctx: null, analyser: null, boost: null, srcMain: null, limiter: null, seeking: false, restored: false, hasPlayed: false, plName: new Map(),
 };
 function showRestartOverlay() {
@@ -1233,6 +1266,7 @@ function runtimePerformanceMode() { return S.activePerformanceMode || S.settings
 const audio = $("#audio");
 let activeHlsPlayer = null;
 let radioRecommendationRequest=0,radioRefreshTimer=0,radioPreloadSequence=0;
+let playCountedForSession=false;
 let hlsLibraryPromise = null;
 function loadHlsLibrary() {
   if (window.Hls) return Promise.resolve(true);
@@ -1512,7 +1546,7 @@ function moveDvdIcon(now) {
 function applyBackground() {
   const b = S.settings.background, node = $("#bgImg"), style = node.style;
   const effectsEnabled = !isEcoMode();
-  style.backgroundImage = ""; style.backgroundColor = ""; style.filter = ""; style.animation = "none"; style.backgroundSize = "cover";
+  style.backgroundImage = ""; style.backgroundColor = ""; style.filter = ""; style.animation = "none"; style.backgroundSize = "cover";style.backgroundPosition="50% 50%";style.transform="none";style.transformOrigin="center";
   const gradient = () => {
     if(b.type === "gradient"){const c1=b.color||"#12131c",c2=b.color2||"#1a1d3a",angle=Number(b.gradient_angle||135),mid=getComputedStyle(document.documentElement).getPropertyValue("--bg2").trim();style.backgroundImage=b.gradient_style==="radial"?`radial-gradient(ellipse at 20% 20%,${c1},${mid} 50%,${c2})`:b.gradient_style==="conic"?`conic-gradient(from ${angle}deg at 50% 50%,${c1},${mid},${c2},${c1})`:`linear-gradient(${angle}deg,${c1},${mid},${c2})`;}else style.backgroundImage = "linear-gradient(135deg,var(--bg1),var(--bg2),var(--bg3))";
     style.backgroundSize = effectsEnabled ? "220% 220%" : "cover";
@@ -1522,11 +1556,24 @@ function applyBackground() {
   if (b.type === "image" && b.image) picture = tk("/bg/" + b.image);
   else if (b.type === "cover") picture = currentCoverUrl();
   if (b.type === "color") style.backgroundColor = b.color;
-  else if (picture) { style.backgroundImage = `url("${picture}")`; const blurPx = Math.max(0, Number(b.blur) || 0); if (blurPx || effectsEnabled) style.filter = `blur(${blurPx}px)` + (effectsEnabled ? " saturate(1.1)" : ""); }
+  else if (picture) { style.backgroundImage = `url("${picture}")`;style.backgroundPosition=`${Number(b.crop_x??50)}% ${Number(b.crop_y??50)}%`;style.transform=`scale(${Math.max(1,Number(b.zoom||100)/100)})`;const blurPx = Math.max(0, Number(b.blur) || 0); if (blurPx || effectsEnabled) style.filter = `blur(${blurPx}px)` + (effectsEnabled ? " saturate(1.1)" : ""); }
   else gradient();
   if (S.settings.theme === "maretu") style.filter = (style.filter ? style.filter + " " : "") + "grayscale(1)";
   document.documentElement.style.setProperty("--dim", String(b.dim / 100));
   updateDvdIcon();
+}
+function updateBackgroundCropPreview() {
+  const settings=S.settings?.background||{}, box=$("#bgCropPreview"), image=$("#bgCropImage");
+  if(!box||!image)return;
+  image.style.backgroundImage=settings.image?`url("${tk("/bg/"+settings.image)}")`:"none";
+  image.style.backgroundPosition=`${Number(settings.crop_x??50)}% ${Number(settings.crop_y??50)}%`;
+  image.style.transform=`scale(${Math.max(1,Number(settings.zoom||100)/100)})`;
+  const background=$("#bgImg"), rect=background?.getBoundingClientRect();
+  const aspect=rect?.width&&rect?.height?rect.width/rect.height:(innerWidth/Math.max(1,innerHeight));
+  const availableWidth=box.parentElement?.clientWidth||box.clientWidth||480;
+  const height=Math.min(280,Math.max(150,availableWidth/aspect));
+  const width=Math.min(availableWidth,height*aspect);
+  box.style.width=`${width}px`;box.style.height=`${height}px`;box.style.aspectRatio=String(aspect);
 }
 
 /* ============================ библиотека ============================ */
@@ -1575,10 +1622,21 @@ function trackSort(a, b) {
   return collator.compare(pa, pb) || (a.n ?? 1e9) - (b.n ?? 1e9) || collator.compare(a.title, b.title);
 }
 function playlistName(track) { return S.plName.get(track.pl) || ""; }
+const PLAYLIST_TRACK_ORDER_KEY = "lastfrequency.playlistTrackOrder.v1";
+let playlistTrackOrder = (() => { try { const value=JSON.parse(localStorage.getItem(PLAYLIST_TRACK_ORDER_KEY)||"{}"); return value&&typeof value==="object"&&!Array.isArray(value)?value:{}; } catch { return {}; } })();
+function savePlaylistTrackOrder(key, ids) {
+  playlistTrackOrder={...playlistTrackOrder,[key]:ids};
+  try { localStorage.setItem(PLAYLIST_TRACK_ORDER_KEY,JSON.stringify(playlistTrackOrder)); } catch (_) {}
+  setSetting({playlist_track_order:playlistTrackOrder},{immediate:true});
+}
+function queuedTrack(id) { return S.byId.get(id)||S.onlineTracks.get(id)||storedRemoteTrack(id); }
+function queueUpcomingIds() { return S.queue.slice(); }
+function queueUpcomingTracks() { return queueUpcomingIds().map(queuedTrack).filter(Boolean); }
 function visibleTracks() {
   const fav = new Set(S.settings.favorites);
   let list;
   if (S.view.type === "radio") list = S.radioQueue.slice();
+  else if (S.view.type === "queue") list = queueUpcomingTracks();
   else if (S.view.type === "fav") list = [...S.tracks.filter((t) => fav.has(t.id)), ...Array.from(S.remoteFavoriteTracks.values(), track => ({...track,remote:true}))];
   else if (S.view.type === "recent") list = S.tracks.slice().sort((a, b) => b.mt - a.mt).slice(0, 100);
   else if (S.view.type === "pl") list = S.tracks.filter((t) => t.pl === S.view.key);
@@ -1595,8 +1653,16 @@ function visibleTracks() {
     new: (a, b) => b.mt - a.mt,
     dur: (a, b) => (b.dur || S.durCache[b.id] || 0) - (a.dur || S.durCache[a.id] || 0),
   };
+  if (S.view.type === "queue" || S.view.type === "radio") return list;
   if (sorters[S.sort]) list.sort(sorters[S.sort]);
-  else if (S.view.type !== "recent") list.sort(trackSort);
+  else if (S.view.type === "pl") {
+    const savedIds=playlistTrackOrder[S.view.key]||[];
+    if(savedIds.length) {
+      const saved=new Map(savedIds.map((id,index)=>[id,index]));
+      const original=new Map(list.map((track,index)=>[track.id,index]));
+      list.sort((a,b)=>(saved.get(a.id)??Infinity)-(saved.get(b.id)??Infinity)||original.get(a.id)-original.get(b.id));
+    } else list.sort(trackSort);
+  } else if (S.view.type !== "recent" && S.view.type !== "custompl" && S.view.type !== "radio") list.sort(trackSort);
   return list;
 }
 
@@ -1622,6 +1688,7 @@ function renderSidebar() {
   };
   const items = [
     { type: "home", key: "", name: "Главная", icon: "search", count: null },
+    { type: "queue", key: "", name: "Очередь", icon: "list", count: queueUpcomingIds().length },
     { type: "radio", key: "", name: "Радио", icon: "radio", count: S.radioQueue?.length || 0 },
     { type: "all", key: "", name: "Все треки", icon: "library", count: S.tracks.length },
     { type: "recent", key: "", name: "Новые", icon: "clock", count: Math.min(100, S.tracks.length) },
@@ -1639,12 +1706,14 @@ function renderSidebar() {
   $("#navPlaylists").innerHTML = playlistItems.map(item=>{
     const rowClass=`nav-item${active(item.type,item.key)}${item.provider?` provider-${item.provider}`:""}`;
     if(item.type==="custompl")return `<div class="playlist-entry" draggable="true" data-playlist-drag="${esc(item.id)}" title="Зажми и перетащи, чтобы изменить порядок"><div style="display:flex;align-items:center"><button class="${rowClass}" data-type="custompl" data-key="${esc(item.key)}" style="flex:1;min-width:0">${playlistArt(item.coverTracks,"heart")}<span class="label">${esc(item.name)}</span><span class="count">${item.count}</span></button><button class="iconbtn" data-delete-playlist="${esc(item.key)}" title="Удалить плейлист" style="width:26px;height:26px;flex:none">${icon("close")}</button></div></div>`;
+     if(item.type==="pl"&&item.name==="Добро и позитив"&&S.samplePlaylistAvailable)return `<div class="playlist-entry" draggable="true" data-playlist-drag="${esc(item.id)}" title="Зажми и перетащи, чтобы изменить порядок"><div style="display:flex;align-items:center"><button class="${rowClass}" data-type="pl" data-key="${esc(item.key)}" style="flex:1;min-width:0">${playlistArt(item.coverTracks,"list")}<span class="label">${esc(item.name)}</span><span class="count">${item.count}</span></button><button class="iconbtn sample-delete" data-delete-sample="1" title="Удалить тестовый плейлист">${icon("close")}</button></div></div>`;
     const provider=item.provider==="youtube"?"youtube":item.provider==="soundcloud"?"soundcloud":"list";
     return `<div class="playlist-entry" draggable="true" data-playlist-drag="${esc(item.id)}" title="Зажми и перетащи, чтобы изменить порядок"><button class="${rowClass}" data-type="pl" data-key="${esc(item.key)}">${playlistArt(item.coverTracks,provider)}<span class="label">${esc(item.name)}</span><span class="count">${item.count}</span></button></div>`;
   }).join("") || `<div class="note" style="padding:8px 12px">Плейлистов пока нет</div>`;
 }
 function viewTitle() {
   if (S.view.type === "home") return "Главная";
+  if (S.view.type === "queue") return "Очередь";
   if (S.view.type === "radio") return "Радио · похожие треки";
   if (S.view.type === "fav") return "Избранное";
   if (S.view.type === "recent") return "Новые";
@@ -1657,7 +1726,10 @@ function renderList() {
   const isHome = S.view.type === "home";
   main.classList.toggle("home-view", isHome);
   $("#homePage").classList.toggle("hidden", !isHome);
-  if (isHome) { renderProviderLinks($("#globalSearch")?.value || ""); renderRecentlyPlayed(); return; }
+  if (isHome) { $("#sort").disabled=false;renderProviderLinks($("#globalSearch")?.value || ""); renderRecentlyPlayed(); return; }
+  const isQueue=S.view.type==="queue";
+  const movablePlaylist=(S.view.type==="pl"||S.view.type==="custompl")&&S.sort==="default"&&!S.search.trim();
+  $("#sort").disabled=isQueue||S.view.type==="radio";
   const list = visibleTracks(), fav = new Set(S.settings.favorites);
   $("#viewTitle").textContent = viewTitle();
   const known = list.reduce((sum, t) => sum + (t.dur || S.durCache[t.id] || 0), 0);
@@ -1665,8 +1737,8 @@ function renderList() {
   const box = $("#list");
   if (!list.length) {
     const empty = !S.tracks.length;
-    box.innerHTML = `<div class="empty"><h2>${empty ? (S.scanning || !S.libraryLoaded ? "Ищу треки…" : "Пока пусто") : "Ничего не найдено"}</h2>` +
-      (S.view.type === "custompl" ? `<p>Добавляй песни кнопкой + рядом с каждым треком.</p>` : empty && !S.scanning && S.libraryLoaded
+    box.innerHTML = `<div class="empty"><h2>${isQueue?"Очередь пуста":empty ? (S.scanning || !S.libraryLoaded ? "Ищу треки…" : "Пока пусто") : "Ничего не найдено"}</h2>` +
+      (isQueue ? `<p>Текущая песня и треки плейлиста будут показаны здесь. Будущие треки можно перетаскивать и удалять.</p>` : S.view.type === "custompl" ? `<p>Добавляй песни кнопкой + рядом с каждым треком.</p>` : empty && !S.scanning && S.libraryLoaded
         ? `<p>Скачай плейлист ботом в режиме «На ПК» — он появится здесь сам. Или кинь файлы в папку <b>music</b> рядом с ботом. Другие папки можно подключить в настройках.</p><button class="btn primary" id="emptySettings">Источники треков</button>`
         : `<p>Попробуй другой запрос или раздел.</p>`) + `</div>`;
     return;
@@ -1675,14 +1747,20 @@ function renderList() {
   const layerIds = new Set(S.layers.map((l) => l.id));
   box.innerHTML = list.map((t, i) => {
     const dur = t.dur || S.durCache[t.id];
-    return `<div class="row${t.id === currentId ? " active" : ""}${layerIds.has(t.id) ? " layer-on" : ""}" data-id="${t.id}">` +
+    const queueIndex=isQueue?S.queue.indexOf(t.id):-1;
+    const queuePlayed=isQueue&&queueIndex>=0&&queueIndex<S.qpos;
+    const queueUpcoming=isQueue&&queueIndex>S.qpos;
+    const rowClass=`row${t.id === currentId ? " active" : ""}${layerIds.has(t.id) ? " layer-on" : ""}${isQueue?" queue-row":""}${queuePlayed?" queue-played":""}${movablePlaylist?" playlist-track-draggable":""}`;
+    const dragAttr=isQueue&&queueUpcoming?` draggable="true" data-queue-drag="${esc(t.id)}" title="Перетащи, чтобы изменить очередь"`:movablePlaylist?` draggable="true" data-track-drag="${esc(t.id)}" title="Перетащи, чтобы изменить порядок плейлиста"`:"";
+    return `<div class="${rowClass}" data-id="${esc(t.id)}"${dragAttr}>` +
       `<button class="select-box${S.selected.has(t.id) ? " on" : ""}" data-select="${t.id}" title="${S.selected.has(t.id) ? "Снять выбор" : "Выбрать трек"}">${S.selected.has(t.id) ? icon("check") : ""}</button>` +
       `<div class="idx"><span>${i + 1}</span><div class="eq"><i></i><i></i><i></i></div></div>` +
       `<div class="main2">${thumbHtml(t)}<div class="tt"><div class="t1">${esc(t.title)}</div><div class="t2">${esc(t.artist || "Неизвестный исполнитель")}</div></div></div>` +
       `<div class="pl">${esc(playlistName(t))}</div><div class="du">${dur ? fmtTime(dur) : ""}</div>` +
-      `<button class="iconbtn addpl" data-addpl="${esc(t.id)}" title="Добавить в плейлист">${icon("plus")}</button>` +
-      `${t.remote ? "" : `<button type="button" class="iconbtn edit-track" data-edit-track="${esc(t.id)}" aria-label="Обрезать трек" title="Обрезать трек">✂</button>`}` +
-      `<button class="iconbtn fav${(t.remote?S.remoteFavorites.has(t.id):fav.has(t.id)) ? " on" : ""}" data-fav="${esc(t.id)}" title="${(t.remote?S.remoteFavorites.has(t.id):fav.has(t.id)) ? "Убрать из избранного" : "В избранное"}">${icon((t.remote?S.remoteFavorites.has(t.id):fav.has(t.id)) ? "heartfill" : "heart")}</button></div>`;
+      (isQueue?(queueUpcoming?`<button class="iconbtn queue-remove" data-queue-remove="${esc(t.id)}" title="Убрать из очереди">${icon("close")}</button>`:`<span class="queue-remove" aria-hidden="true"></span>`):
+        `<button class="iconbtn addpl" data-addpl="${esc(t.id)}" title="Добавить в плейлист">${icon("plus")}</button>` +
+        `${t.remote ? "" : `<button type="button" class="iconbtn edit-track" data-edit-track="${esc(t.id)}" aria-label="Обрезать трек" title="Обрезать трек">✂</button>`}` +
+        `<button class="iconbtn fav${(t.remote?S.remoteFavorites.has(t.id):fav.has(t.id)) ? " on" : ""}" data-fav="${esc(t.id)}" title="${(t.remote?S.remoteFavorites.has(t.id):fav.has(t.id)) ? "Убрать из избранного" : "В избранное"}">${icon((t.remote?S.remoteFavorites.has(t.id):fav.has(t.id)) ? "heartfill" : "heart")}</button>`)+`</div>`;
   }).join("");
   box.querySelectorAll("[data-edit-track]").forEach(button=>button.addEventListener("click",event=>{
     event.preventDefault(); event.stopPropagation();
@@ -1709,6 +1787,52 @@ function setQueue(list, startId) {
   S.remoteQueueActive = false;
   S.baseQueue = list.map((t) => t.id);
   rebuildQueue(startId);
+  refreshQueueUi();
+}
+function queueSelectTrack(list,id,source) {
+  if(S.queueSource!==source) {
+    setQueue(list,id);
+    S.queueSource=source;
+    return;
+  }
+  let position=S.queue.indexOf(id);
+  if(position<0) {
+    position=Math.min(S.queue.length,Math.max(0,S.qpos+1));
+    S.queue.splice(position,0,id);
+    S.baseQueue=S.queue.slice();
+  }
+  S.qpos=position;
+  refreshQueueUi();
+}
+function refreshQueueUi() { renderSidebar(); if(S.view.type==="queue")renderList(); }
+function reorderDroppedId(ids, fromId, toId, afterTarget) {
+  const from=ids.indexOf(fromId), target=ids.indexOf(toId);
+  if(from<0||target<0||from===target)return null;
+  const [moved]=ids.splice(from,1);
+  let insert=target+(afterTarget?1:0);
+  if(from<insert)insert--;
+  ids.splice(Math.max(0,insert),0,moved);
+  return ids;
+}
+function reorderUpcomingQueue(fromId,toId,afterTarget) {
+  const prefix=S.queue.slice(0,Math.max(0,S.qpos+1));
+  const upcoming=S.queue.slice(Math.max(0,S.qpos+1));
+  if(!reorderDroppedId(upcoming,fromId,toId,afterTarget))return;
+  S.queue=prefix.concat(upcoming);S.baseQueue=S.queue.slice();refreshQueueUi();
+}
+function removeUpcomingTrack(id) {
+  const index=S.queue.indexOf(id);
+  if(index<0||index<=S.qpos)return;
+  S.queue.splice(index,1);S.baseQueue=S.queue.slice();refreshQueueUi();
+}
+function reorderVisiblePlaylist(fromId,toId,afterTarget) {
+  const ids=visibleTracks().map(track=>track.id);
+  if(!reorderDroppedId(ids,fromId,toId,afterTarget))return;
+  if(S.view.type==="custompl") {
+    const playlist=S.customPlaylists.find(item=>item.id===S.view.key);if(!playlist)return;
+    playlist.ids=ids.concat(playlist.ids.filter(id=>!ids.includes(id)));saveCustomPlaylists();
+  } else savePlaylistTrackOrder(S.view.key,ids);
+  renderList();
 }
 function rebuildQueue(currentId) {
   const base = S.baseQueue.slice();
@@ -1817,7 +1941,9 @@ function loadTrack(id, { autoplay = true, position = 0 } = {}) {
   S.remoteLoadToken++; S.remoteQueueActive = false;
   disposeHlsPlayer();
   S.current = track;
+  playCountedForSession=false;
   refreshRadioForTrack(track);
+  refreshQueueUi();
   audio.removeAttribute("crossorigin");
   audio.src = tk("/audio/" + id);
   updateNeighborPreloads();
@@ -1843,7 +1969,8 @@ function playFromList(id) {
   if (multiOn()) { toggleLayer(id); return; }
   const list = visibleTracks();
   if (list.some(track => track.remote)) S.currentGlobalResults = list.slice();
-  setQueue(list, id);
+  const source=S.view.type==="queue"?S.queueSource:`${S.view.type}:${S.view.key}`;
+  queueSelectTrack(list,id,source);
   loadTrack(id);
 }
 function playAll(shuffle) {
@@ -1851,8 +1978,19 @@ function playAll(shuffle) {
   if (!list.length) return;
   if (multiOn()) setMulti(false);  // «Играть» всегда означает обычное воспроизведение списка
   if (shuffle !== undefined && shuffle !== S.settings.shuffle) { setSetting({ shuffle }); updateModeButtons(); }
-  const start = S.settings.shuffle ? list[Math.floor(Math.random() * list.length)].id : list[0].id;
-  setQueue(list, start);
+  const source=S.view.type==="queue"?S.queueSource:`${S.view.type}:${S.view.key}`;
+  let start;
+  if(S.queueSource===source&&S.queue.length) {
+    const currentList=S.view.type==="radio"?S.radioQueue.map(track=>track.id).filter(id=>S.queue.includes(id)):S.queue;
+    start=S.settings.shuffle?currentList[Math.floor(Math.random()*currentList.length)]:currentList[0];
+    if(!start)return;
+    rebuildQueue(start);
+    refreshQueueUi();
+  } else {
+    start=S.settings.shuffle?list[Math.floor(Math.random()*list.length)].id:list[0].id;
+    setQueue(list,start);
+  }
+  S.queueSource=source;
   loadTrack(start);
 }
 function togglePlay() {
@@ -1861,12 +1999,13 @@ function togglePlay() {
   if (audio.paused) playAudio(); else audio.pause();
 }
 function next(auto = false) {
-  if (multiOn() || !S.queue.length) return;
-  if (auto && S.settings.repeat === "one") { audio.currentTime = 0; playAudio(); return; }
+  if (multiOn()) return;
+  if(!S.queue.length){if(auto&&S.radioEnabled)loadRadioNext({playNow:true,refresh:true});return;}
+  if (auto && S.settings.repeat === "one") { playCountedForSession=false;audio.currentTime = 0; playAudio(); return; }
   let pos = S.qpos + 1;
   if (pos >= S.queue.length) {
     if (S.settings.repeat === "all") { if (S.settings.shuffle && auto) rebuildQueue(null); pos = 0; }
-    else if (S.radioEnabled) { loadRadioNext({playNow:true,refresh:true,seedTrack:S.current}); return; }
+    else if (S.radioEnabled) { loadRadioNext({playNow:true,refresh:true}); return; }
     else if (!auto) { pos = 0; }
     else { audio.pause(); audio.currentTime = 0; sendNowPlaying(); return; }
   }
@@ -1893,84 +2032,91 @@ function updateRadioUi() {
 }
 async function toggleRadio() {
   if(S.radioLoading)return;
-  if(!isOnlineMode())return toast("Радио доступно в режимах «ЭкоОнлайн» и «Онлайн».");
+  if(!isOnlineMode()){toast("Радио доступно в режимах «ЭкоОнлайн» и «Онлайн».");return;}
   if(S.radioEnabled) { S.view={type:"radio",key:""};renderSidebar();renderList();return; }
-  if(!S.current&&!S.radioQueue.length)return toast("Сначала включи трек — радио подберёт похожую музыку.");
-  S.radioEnabled=true;S.radioSeen.clear();S.radioSeenOrder=[];
-  const seed=S.current||S.radioQueue[0];
-  if(seed&&seed.url)rememberRadioIdentity(radioIdentity(seed.url));
+  S.radioEnabled=true;S.radioSeen.clear();S.radioSeenOrder=[];S.radioQueue=[];S.queueSource="";
   S.view={type:"radio",key:""};renderSidebar();renderList();
   updateRadioUi();
-  await loadRadioNext({refresh:true,seedTrack:seed,playNow:audio.paused&&!S.radioQueue.length});
+  await loadRadioNext({refresh:true,playNow:audio.paused});
 }
-function refreshRadioForTrack(track) {
-  if(!S.radioEnabled||!track)return;
-  clearTimeout(radioRefreshTimer);
-  const id=track.id;
-  radioRefreshTimer=setTimeout(()=>{
-    if(S.radioEnabled&&S.current?.id===id)loadRadioNext({refresh:true,seedTrack:track});
-  },500);
+function refreshRadioForTrack(_track) {}
+function topListenedTracks(days=0,limit=20) {
+  const cutoff=days?Date.now()-days*24*60*60*1000:0;
+  return S.playHistory.filter(item=>Number(item.at||0)>=cutoff).map(item=>{
+    const track=item.remote?(S.onlineTracks.get(item.id)||storedRemoteTrack(item.id)||{...item,remote:true}):S.byId.get(item.id);
+    return track?{...track,count:Math.max(1,Number(item.count)||1),lastPlayed:Number(item.at)||0}:null;
+  }).filter(Boolean).sort((a,b)=>b.count-a.count||b.lastPlayed-a.lastPlayed||collator.compare(a.title,b.title)).slice(0,limit);
 }
-function rememberRadioIdentity(key) {
-  if(!key||S.radioSeen.has(key))return;
-  S.radioSeen.add(key);S.radioSeenOrder.push(key);
-  while(S.radioSeenOrder.length>120){const expired=S.radioSeenOrder.shift();S.radioSeen.delete(expired);}
-}
-function radioIdentity(url) {
-  try {
-    const parsed=new URL(String(url||"")),host=parsed.hostname.toLowerCase();
-    if(host==="youtu.be")return "yt:"+parsed.pathname.split("/").filter(Boolean)[0];
-    if(host.endsWith("youtube.com")) {
-      const match=parsed.pathname.match(/\/(?:shorts|embed)\/([^/?]+)/);
-      const id=parsed.searchParams.get("v")||(match&&match[1]);
-      if(id)return "yt:"+id;
+async function loadRadioNext({playNow=false,refresh=false}={}) {
+  if(!S.radioEnabled||S.radioLoading)return;
+  S.radioLoading=true;updateRadioUi();
+  const history=topListenedTracks(10.5,2000).filter(track=>isOnlineMode()||!track.remote);
+  const seeds=[];
+  if(S.current) {
+    const played=history.find(track=>track.id===S.current.id&&!!track.remote===!!S.current.remote);
+    seeds.push({...S.current,count:Math.max(1,Number(played?.count)||1),lastPlayed:Date.now()});
+  }
+  for(const track of history)if(!seeds.some(seed=>seed.id===track.id))seeds.push(track);
+  const chosen=seeds.slice(0,5);
+  let tracks=[];
+  if(isOnlineMode()&&chosen.length) {
+    const provider=["all","youtube_music","youtube","soundcloud"].includes(S.settings?.search_provider)?S.settings.search_provider:"all";
+    const results=await Promise.allSettled(chosen.map(seed=>api("/api/radio","POST",{url:seed.url||"",title:seed.title||"",artist:seed.artist||"",provider})));
+    const candidates=new Map();
+    results.forEach((result,seedIndex)=>{
+      if(result.status!=="fulfilled")return;
+      for(const [rank,item] of (result.value.tracks||result.value.results||[]).entries()) {
+        if(!item?.id&&!item?.url)continue;
+        const titleKey=String(item.title||"").trim().toLocaleLowerCase();
+        const artistKey=String(item.artist||"").trim().toLocaleLowerCase();
+        if(chosen.some(seed=>String(seed.title||"").trim().toLocaleLowerCase()===titleKey&&(!artistKey||!seed.artist||String(seed.artist).trim().toLocaleLowerCase()===artistKey)))continue;
+        const source=String(item.provider||provider||"youtube");
+        const rawId=String(item.id||item.url||"");
+        const id=`radio:${source}:${rawId}`;
+        if(S.radioSeen.has(id))continue;
+        const old=candidates.get(id)||{track:{...item,id,provider:source,remote:true,dur:safeDuration(item.duration||item.dur)},score:0,sources:0};
+        old.score+=Math.max(1,20-rank)*(chosen[seedIndex].count||1);old.sources++;
+        candidates.set(id,old);
+      }
+    });
+    tracks=Array.from(candidates.values()).sort((a,b)=>b.score-a.score||b.sources-a.sources).slice(0,30).map(item=>item.track);
+  }
+  tracks.forEach(track=>S.onlineTracks.set(track.id,track));
+  const knownRadioIds=new Set(S.radioQueue.map(track=>track.id));
+  for(const track of tracks) {
+    if(!knownRadioIds.has(track.id))S.radioQueue.push(track);
+    if(!S.radioSeen.has(track.id)){S.radioSeen.add(track.id);S.radioSeenOrder.push(track.id);}
+  }
+  while(S.radioSeenOrder.length>1200)S.radioSeen.delete(S.radioSeenOrder.shift());
+  S.currentGlobalResults=S.radioQueue.slice();
+  const radioSource="radio:";
+  const currentId=S.current?.id||"";
+  if(S.queueSource!==radioSource) {
+    S.queue=[];
+    if(currentId)S.queue.push(currentId);
+    S.qpos=currentId?0:-1;
+    S.queueSource=radioSource;
+    for(const track of S.radioQueue)if(!S.queue.includes(track.id))S.queue.push(track.id);
+  }
+  const queueAddTracks=tracks.filter(track=>!S.queue.includes(track.id));
+  const queueAddIds=S.settings.shuffle?shuffled(queueAddTracks.map(track=>track.id)):queueAddTracks.map(track=>track.id);
+  S.queue.push(...queueAddIds);
+  S.baseQueue=S.queue.slice();
+  const nextRadioTrack=(queueAddIds.length?queuedTrack(queueAddIds[0]):null)||S.radioQueue.find(track=>track.id!==currentId);
+  if(playNow&&nextRadioTrack) {
+    S.qpos=S.queue.indexOf(nextRadioTrack.id);
+    loadTrack(nextRadioTrack.id);
+  } else refreshQueueUi();
+  if(tracks.length) {
+    if(tracks.some(track=>track.remote)) {
+      const preloadId=++radioPreloadSequence;
+      preloadTrackArtwork(tracks);
+      preloadOnlineStreams(tracks.filter(track=>track.remote),preloadId,"radio");
     }
-  } catch(_) {}
-  return "url:"+String(url||"").split("?")[0].replace(/\/$/,"").toLowerCase();
-}
-async function loadRadioNext({playNow=false,refresh=false,seedTrack=null}={}) {
-  if(!S.radioEnabled||(!seedTrack&&!S.current&&!S.radioQueue.length))return;
-  if(S.radioLoading&&!refresh)return;
-  if(!isOnlineMode()) { S.radioEnabled=false; updateRadioUi(); return; }
-  const requestId=++radioRecommendationRequest;
-  const seed=seedTrack||S.current||S.radioQueue[S.radioQueue.length-1]||S.radioQueue[0];
-  if(!seed)return;
-  S.radioLoading=true; updateRadioUi();
-  try {
-    const data=await api("/api/radio","POST",{url:seed.url||"",title:seed.title||"",artist:seed.artist||""});
-    if(requestId!==radioRecommendationRequest)return;
-    const results=Array.isArray(data.results)?data.results:[];
-    const tracks=[];
-    for(const raw of results) {
-      const provider=String(raw.provider||"youtube"), url=String(raw.url||"");
-      if(!url||raw.preview_only||!(["youtube_music","youtube"].includes(provider)))continue;
-      const key=radioIdentity(url);
-      if(S.radioSeen.has(key))continue;
-      rememberRadioIdentity(key);
-      const id="radio:"+provider+":"+String(raw.id||encodeURIComponent(url).slice(-80));
-      const track={...raw,id,provider,url,remote:true,dur:safeDuration(raw.duration||raw.dur),_streamResolvedAt:0};
-      S.onlineTracks.set(id,track); tracks.push(track);
-      if(tracks.length>=30)break;
-    }
-    if(!tracks.length) {
-      if(playNow&&S.radioQueue.length){S.baseQueue=S.radioQueue.map(track=>track.id);S.queue=S.baseQueue.slice();S.qpos=0;playOnlineTrack(S.radioQueue[0].id);}
-      else if(playNow){audio.pause();audio.currentTime=0;toast("Не удалось найти новые похожие треки для радио.");}
-      return;
-    }
-    S.radioQueue=refresh?tracks.slice(0,30):[...S.radioQueue,...tracks].slice(-30);
-    S.currentGlobalResults=S.radioQueue.slice();
-    if(playNow){S.baseQueue=S.radioQueue.map(track=>track.id);S.queue=S.baseQueue.slice();S.qpos=0;}
-    const preloadId=++radioPreloadSequence;
-    preloadTrackArtwork(S.radioQueue);
-    preloadOnlineStreams(S.radioQueue,preloadId,"radio");
-    renderSidebar();if(S.view.type==="radio")renderList();
-    if(playNow)playOnlineTrack(S.radioQueue[0].id);
-    else if(!refresh)toast(`Радио добавило ${tracks.length} похожих треков в очередь.`);
-  } catch(error) {
-    if(requestId===radioRecommendationRequest){if(playNow&&S.radioQueue.length){S.baseQueue=S.radioQueue.map(track=>track.id);S.queue=S.baseQueue.slice();S.qpos=0;playOnlineTrack(S.radioQueue[0].id);}else if(playNow){audio.pause();audio.currentTime=0;toast("Не удалось загрузить радио: "+String(error.message||error));}}
-  } finally {if(requestId===radioRecommendationRequest){S.radioLoading=false;updateRadioUi();}}
-}
-function prev() {
+  } else if(playNow) toast(chosen.length?"Не удалось найти новые похожие треки для радио.":"Радио появится после 30 секунд прослушивания треков.");
+  renderSidebar();if(S.view.type==="radio"||S.view.type==="queue")renderList();
+  S.radioLoading=false;updateRadioUi();
+}function prev() {
   if (multiOn() || !S.queue.length) return;
   if (audio.currentTime > 3) { audio.currentTime = 0; return; }
   if (S.qpos > 0) S.qpos -= 1;
@@ -1982,6 +2128,7 @@ function restoreLast() {
   const last = S.settings.last;
   if (!last || !last.id || !S.byId.has(last.id)) return;
   setQueue(S.tracks.slice().sort(trackSort), last.id);
+  S.queueSource="all:";
   loadTrack(last.id, { autoplay: false, position: last.pos });
 }
 function toggleSelected(id) {
@@ -2540,7 +2687,7 @@ function miniSelectPlaylist(key) {
   const list = miniQueueForView();
   if (!list.length) return false;
   if (list.some(track => track.remote)) S.currentGlobalResults = list.slice();
-  renderSidebar(); renderList(); setQueue(list, list[0].id); loadTrack(list[0].id);
+  renderSidebar(); renderList(); queueSelectTrack(list,list[0].id,`${S.view.type}:${S.view.key}`); loadTrack(list[0].id);
   return true;
 }
 function miniSelectTrack(id) {
@@ -2552,7 +2699,7 @@ function miniSelectTrack(id) {
     S.view = track.pl ? {type:"pl", key:track.pl} : {type:"all", key:""};
     list = miniQueueForView();
   }
-  renderSidebar(); renderList(); setQueue(list, id); loadTrack(id);
+  renderSidebar(); renderList(); queueSelectTrack(list,id,`${S.view.type}:${S.view.key}`); loadTrack(id);
   return true;
 }
 window.ecoMiniDispatch = command => {
@@ -3027,6 +3174,16 @@ function closeSettings() { $("#settings").classList.add("hidden"); }
 let setupStep=0, setupWizardFirstRun=false;
 const setupStepLabels=["Оформление","Фон","Источники","Режим"];
 function setupSamplePlaylist() { return S.playlists.find(item=>String(item.name||"").trim().toLocaleLowerCase()==="добро и позитив")||null; }
+async function deleteSamplePlaylist() {
+  if(!S.samplePlaylistAvailable)return;
+  const playlist=setupSamplePlaylist();
+  try {
+    await api("/api/sample-playlist","POST",{action:"delete"});
+    S.samplePlaylistAvailable=false;
+    if(playlist&&S.view.type==="pl"&&S.view.key===playlist.key)S.view={type:"all",key:""};
+    renderSidebar();renderList();refreshLibrarySoon();toast("Тестовый плейлист удалён.");
+  } catch(error) { toast("Не удалось удалить тестовый плейлист: "+error.message); }
+}
 function renderSetupSample() {
   const playlist=setupSamplePlaylist(), rows=$("#wizardSampleTracks");
   const tracks=playlist?S.tracks.filter(track=>playlistName(track)===playlist.name).slice(0,10):[];
@@ -3058,6 +3215,7 @@ function applySetupPreview() {
 }
 function openSetupWizard(firstRun=false) {
   setupWizardFirstRun=!!firstRun; setupStep=0;
+  $("#wizardKeepSample").checked=true;
   $("#wizardRadius").value=String(S.settings.radius??16); $("#wizardGlass").value=String(S.settings.glass??10);
   $("#wizardTrackScale").value=String(Math.min(200,Math.max(50,S.settings.track_scale||130)));
   $("#wizardTrackScaleValue").value=$("#wizardTrackScale").value;
@@ -3073,13 +3231,7 @@ async function finishSetupWizard() {
   if(saved===false)return;
   closeSetupWizard();
   if(S.settings.performance_mode!==oldMode)toast("Режим сохранён. Перезапусти плеер, чтобы применить его.");
-  if(setupWizardFirstRun&&setupSamplePlaylist()) {
-    const choice=await cutePrompt({title:"Оставить тестовые треки?",subtitle:"В папке music есть список «Добро и позитив». Можно оставить его или удалить тестовые MP3.",confirmText:"Применить",options:[{value:"keep",label:"Да, оставить тестовые треки"},{value:"delete",label:"Нет, удалить тестовые треки"}]});
-    if(choice==="delete") {
-      try { await api("/api/sample-playlist","POST",{action:"delete"}); refreshLibrarySoon(); toast("Тестовые треки удалены."); }
-      catch(error) { toast("Не удалось удалить тестовый плейлист: "+error.message); }
-    }
-  }
+  if(S.samplePlaylistAvailable&&!$("#wizardKeepSample").checked)await deleteSamplePlaylist();
   setupWizardFirstRun=false;
 }
 function setWizardSourceEnabled(id,enabled) {
@@ -3238,6 +3390,7 @@ function syncSettingsUi() {
   $("#vizOpacityMode").value = c.visualizer_opacity_mode || "normal"; setRange("vizOpacity", c.visualizer_opacity ?? 46, "%"); setRange("vizGlow", c.visualizer_glow ?? 60, "%"); updateVisualizerSettingVisibility();
   setRange("radius", c.radius, " px"); setRange("glass", c.glass, "%"); setRange("panelBlur", c.panel_blur ?? 18, " px"); setRange("trackScale", c.track_scale || 100, "%"); setRange("rowScale",c.row_scale||100,"%");
   setRange("bgBlur", c.background.blur, " px"); setRange("bgDimR", c.background.dim, "%");
+  setRange("bgCropX",c.background.crop_x??50,"%");setRange("bgCropY",c.background.crop_y??50,"%");setRange("bgZoom",c.background.zoom??100,"%");
   $("#bgColor").value = c.background.color; $("#bgAnim").checked = c.background.animate;
   $("#dcOn").checked = c.discord.enabled;
   $("#dcElapsed").checked = c.discord.show_elapsed; $("#dcCover").checked = c.discord.show_cover !== false;
@@ -3270,10 +3423,12 @@ function updateBgControls() {
   const type = S.settings.background.type;
   $$("#bgType button").forEach((b) => b.classList.toggle("active", b.dataset.type === type));
   $("#bgColorRow").classList.toggle("hidden", type !== "color");
+  $("#bgCropBox").classList.toggle("hidden", type !== "image");
   $("#customGradientBox").classList.toggle("hidden", type !== "gradient");
   $("#bgImageBox").classList.toggle("hidden", type !== "image");
   $("#bgBlurRow").classList.toggle("hidden", type !== "image" && type !== "cover");
   $("#bgAnimRow").classList.toggle("hidden", type !== "theme" && type !== "gradient");
+  updateBackgroundCropPreview();
 }
 
 let trackEditorTrack = null;
@@ -3544,7 +3699,7 @@ function homeTrackHtml(track, {history=false}={}) {
   const isSoundCloud=track.remote&&String(track.provider||"")==="soundcloud";
   const playLabel=track.remote?"Слушать":"Играть";
   const external=track.remote&&track.url&&!isSoundCloud?`<button class="btn" data-open-online="${esc(track.id)}" title="Открыть площадку">↗</button>`:"";
-  const download="";
+  const download=track.remote&&track.url&&!track.preview_only&&["youtube_music","youtube","soundcloud"].includes(String(track.provider||""))?`<button class="btn small" data-download-global="${esc(track.id)}" title="Скачать MP3">MP3</button>`:"";
   const addPlaylist=track.remote?`<button class="btn small" data-add-online-pl="${esc(track.id)}" title="Добавить в плейлист без скачивания">+PL</button>`:"";
   const favorite=track.remote?S.remoteFavorites.has(track.id):!!S.settings?.favorites?.includes(track.id);
   const favoriteAction=history?`<button class="btn small${favorite?" on":""}" data-fav="${esc(track.id)}" title="${favorite?"Убрать из избранного":"В избранное"}">${icon(favorite?"heartfill":"heart")}</button>`:"";
@@ -3717,14 +3872,15 @@ async function playOnlineTrack(id,{autoplay=true,position=0}={}) {
   const track=S.onlineTracks.get(id); if(!track)return;
   if(!isOnlineMode()) { toast("Онлайн-воспроизведение доступно только в онлайн-режимах."); return; }
   const token=++S.remoteLoadToken;
-  S.remoteQueueActive=true;
   audio.pause();
   S.current=track;
+  playCountedForSession=false;
   refreshRadioForTrack(track);
-  const currentPlaylistTracks=S.view.type==="custompl"?visibleTracks():S.currentGlobalResults;
-  S.baseQueue=currentPlaylistTracks.map(item=>item.id);
-  if(!S.baseQueue.includes(id)) S.baseQueue=[id,...S.baseQueue];
-  rebuildQueue(id);
+  const queueSource=S.view.type==="queue"?S.queueSource:`${S.view.type}:${S.view.key}`;
+  const currentPlaylistTracks=S.view.type==="custompl"?visibleTracks():S.view.type==="queue"?S.queue.map(queuedTrack).filter(Boolean):S.currentGlobalResults;
+  queueSelectTrack(currentPlaylistTracks,id,queueSource);
+  S.remoteQueueActive=true;
+  refreshQueueUi();
   updateNowPlayingUi(); highlightRow();
   try {
     if(["spotify","apple_music","yandex"].includes(String(track.provider||""))) {
@@ -3771,10 +3927,18 @@ async function playOnlineTrack(id,{autoplay=true,position=0}={}) {
 }
 function recordPlayHistory(track) {
   if(!track || !track.id) return;
-  const item={id:track.id,title:String(track.title||"Без названия").slice(0,180),artist:String(track.artist||"").slice(0,180),remote:!!track.remote,provider:track.provider||"",source:track.source||"",url:track.url||"",thumbnail:track.thumbnail||"",artist_thumbnail:track.artist_thumbnail||"",stream_url:"",preview_only:!!track.preview_only,dur:safeDuration(track.dur||track.duration),cover:!!track.cover,at:Date.now()};
+  const previous=S.playHistory.find(entry=>entry.id===track.id&&!!entry.remote===!!track.remote);
+  const item={id:track.id,title:String(track.title||"Без названия").slice(0,180),artist:String(track.artist||"").slice(0,180),remote:!!track.remote,provider:track.provider||"",source:track.source||"",url:track.url||"",thumbnail:track.thumbnail||"",artist_thumbnail:track.artist_thumbnail||"",stream_url:"",preview_only:!!track.preview_only,dur:safeDuration(track.dur||track.duration),cover:!!track.cover,at:Date.now(),count:Math.min(1000000000,(Number(previous?.count)||0)+1)};
   S.playHistory=mergePlaybackHistory([item],S.playHistory);
   savePlaybackHistory();
   renderRecentlyPlayed();
+  renderSidebar();renderListeningStats();
+}
+function countCurrentListenIfReady() {
+  if(playCountedForSession||audio.paused||!S.current||S.current.preview_only)return;
+  const duration=Number(audio.duration)||safeDuration(S.current.dur||S.current.duration);
+  const threshold=duration?Math.min(30,duration*.5):30;
+  if(audio.currentTime>=threshold){playCountedForSession=true;recordPlayHistory(S.current);}
 }
 function savePlaybackHistory() {
   try{localStorage.setItem("last-frequency.play-history.v2",JSON.stringify(S.playHistory));}catch(_){}
@@ -3806,6 +3970,15 @@ function renderRecentlyPlayed() {
     return track?homeTrackHtml(track,{history:true}):"";
   }).join(""):`<div class="home-empty">Здесь появятся треки, которые ты слушал. Начни с поиска выше или включи песню из локальной библиотеки.</div>`;
 }
+function renderListeningStats() {
+  const box=$("#listeningStats");if(!box)return;
+  const tracks=topListenedTracks(0,50);
+  box.innerHTML=tracks.length?tracks.map((track,index)=>{
+    const last=track.lastPlayed?new Date(track.lastPlayed).toLocaleString("ru-RU",{dateStyle:"short",timeStyle:"short"}):"—";
+    const source=track.remote?(_playlistProviderName(track.provider||track.source)):"Локальная библиотека";
+    return `<div class="top-listened-row"><span class="top-listened-rank">${index+1}</span><div><div class="top-listened-title">${esc(track.title||"Без названия")}</div><div class="top-listened-sub">${esc(track.artist||source)} · ${esc(source)} · последний раз ${esc(last)}</div></div><span class="top-listened-count">${track.count} ${plural(track.count,"прослушивание","прослушивания","прослушиваний")}</span></div>`;
+  }).join(""):`<div class="top-listened-empty">Пока нет засчитанных прослушиваний. Статистика начнёт собираться после 30 секунд воспроизведения.</div>`;
+}
 function handleHomeTrackClick(event) {
   const favorite=event.target.closest("[data-fav]");
   if(favorite) { event.preventDefault(); event.stopPropagation(); toggleFavorite(favorite.dataset.fav); return; }
@@ -3821,7 +3994,6 @@ function handleHomeTrackClick(event) {
     const playlist=S.onlinePlaylists.get(playlistId)||(openedGlobalPlaylist?.id===playlistId?openedGlobalPlaylist:null);
     if(!playlist?.url) return toast("Для этого плейлиста нет доступной ссылки.");
     if(!isOnlineMode()) return toast("Для загрузки выбери «ЭкоОнлайн» или «Онлайн» и перезапусти плеер.");
-    if(!S.settings?.mp3_downloader_enabled) { toast("Загрузчик MP3 выключен. Открой Настройки → Загрузки MP3 и включи его."); openSettings("download"); return; }
     startMp3Download(playlist.url,true,String(playlist.provider||""),String(playlist.title||"Плейлист")).catch(error=>toast(error.message||"Не удалось начать загрузку"));
     return;
   }
@@ -3836,15 +4008,14 @@ function handleHomeTrackClick(event) {
     const track=S.onlineTracks.get(id)||S.playHistory.find(item=>item.id===id&&item.remote);
     if(!track?.url) return toast("Ссылка на исходный трек больше недоступна. Выполни поиск ещё раз.");
     if(!isOnlineMode()) return toast("Для загрузки выбери «ЭкоОнлайн» или «Онлайн» и перезапусти плеер.");
-    if(!S.settings?.mp3_downloader_enabled) { toast("Загрузчик MP3 выключен. Открой Настройки → Загрузки MP3 и включи его."); openSettings("download"); return; }
-    startMp3Download(track.url,false,String(track.provider||""),String(track.title||"Трек")).catch(error=>toast(error.message||"Не удалось начать загрузку"));
+    startMp3Download(track.url,false,String(track.provider||""),String(track.title||"Трек"),false).catch(error=>toast(error.message||"Не удалось начать загрузку"));
     return;
   }
   if(open) { const track=S.onlineTracks.get(open.dataset.openOnline)||S.playHistory.find(item=>item.id===open.dataset.openOnline&&item.remote); if(track?.url) window.open(track.url,"_blank","noopener,noreferrer"); return; }
   if(play) { const id=play.dataset.playOnline; if(S.onlineTracks.has(id)) { if(event.target.closest("#recentlyPlayed")) S.currentGlobalResults=[S.onlineTracks.get(id)]; else if(!S.currentGlobalResults.some(item=>item.id===id)) S.currentGlobalResults=[S.onlineTracks.get(id)]; playOnlineTrack(id); return; }
     const history=S.playHistory.find(item=>item.id===id);
     if(history?.remote) { S.onlineTracks.set(id,{...history,remote:true}); S.currentGlobalResults=[S.onlineTracks.get(id)]; playOnlineTrack(id); }
-    else if(history && S.byId.has(id)) { S.view={type:"all",key:""}; renderSidebar(); renderList(); setQueue(S.tracks.slice().sort(trackSort),id); loadTrack(id); }
+    else if(history && S.byId.has(id)) { S.view={type:"all",key:""}; renderSidebar(); renderList(); queueSelectTrack(S.tracks.slice().sort(trackSort),id,"all:"); loadTrack(id); }
     return;
   }
   const onlineCard=event.target.closest("[data-online-track]");
@@ -3854,7 +4025,7 @@ function handleHomeTrackClick(event) {
     return;
   }
   const row=event.target.closest("[data-history-track]");
-  if(row && !event.target.closest("button")) { const id=row.dataset.historyTrack; if(S.onlineTracks.has(id)) playOnlineTrack(id); else {const history=S.playHistory.find(item=>item.id===id);if(history?.remote){S.onlineTracks.set(id,{...history,remote:true});S.currentGlobalResults=[S.onlineTracks.get(id)];playOnlineTrack(id);}else if(S.byId.has(id)){setQueue(S.tracks.slice().sort(trackSort),id);loadTrack(id);}} }
+  if(row && !event.target.closest("button")) { const id=row.dataset.historyTrack; if(S.onlineTracks.has(id)) playOnlineTrack(id); else {const history=S.playHistory.find(item=>item.id===id);if(history?.remote){S.onlineTracks.set(id,{...history,remote:true});S.currentGlobalResults=[S.onlineTracks.get(id)];playOnlineTrack(id);}else if(S.byId.has(id)){queueSelectTrack(S.tracks.slice().sort(trackSort),id,"all:");loadTrack(id);}} }
 }
 
 function renderSettingsDynamic() {
@@ -3866,6 +4037,7 @@ function renderSettingsDynamic() {
     : `<div class="note">Пока нет картинок — загрузи свою.</div>`;
   renderSources();
   renderDiscordStatus();
+  renderListeningStats();
 }
 function renderSources() {
   const box = $("#sources");
@@ -3922,7 +4094,16 @@ function renderDownloadJob(job){const box=$("#downloadActive");let card=box.quer
 function scheduleDownloadPoll(){clearTimeout(downloadPollTimer);if(!Array.from(downloadJobs.values()).some(job=>!["finished","failed","cancelled"].includes(job.status)))return;downloadPollTimer=setTimeout(pollDownloadJobs,700);}
 async function pollDownloadJobs(){for(const [id,job] of downloadJobs){if(["finished","failed","cancelled"].includes(job.status))continue;try{const latest=await api("/api/download/status?id="+encodeURIComponent(id));Object.assign(job,latest);renderDownloadJob(job);}catch(error){downloadJobs.delete(id);toast(error.message);}}scheduleDownloadPoll();}
 
-async function startMp3Download(url,isPlaylist=false,provider="",playlistTitle="") { let playlist="Загрузки",destination_path=$("#downloadPath").value.trim()||S.settings.download_path||"";if(!isPlaylist){playlist=await chooseDownloadPlaylist();if(playlist===null)return;if(playlist==="__choose_folder__"){const choice=await api("/api/browse","POST",{initial:destination_path||""});if(!choice.path)return;destination_path=choice.path;playlist="Загрузки";}else if(playlist!=="Загрузки")destination_path="";}const job=await api("/api/download/start","POST",{url,playlist,is_playlist:isPlaylist,destination_path,provider,playlist_title:playlistTitle});downloadJobs.set(job.id,job);renderDownloadJob(job);scheduleDownloadPoll(); }
+async function enableDownloaderForImmediateDownload() {
+  if(!isOnlineMode())throw new Error("Скачивание доступно в режимах «ЭкоОнлайн» и «Онлайн». Перезапусти плеер после выбора режима.");
+  if(S.settings?.mp3_downloader_enabled===false) {
+    const saved=await setSetting({mp3_downloader_enabled:true},{immediate:true});
+    if(saved===false)throw new Error("Не удалось включить загрузчик MP3.");
+    S.settings.mp3_downloader_enabled=true;$("#mp3DownloaderEnabled").checked=true;$("#mp3DownloaderControls").classList.remove("hidden");
+    setTimeout(pollDownloaderStatus,250);
+  }
+}
+async function startMp3Download(url,isPlaylist=false,provider="",playlistTitle="",askDestination=true) { let playlist="Загрузки",destination_path=$("#downloadPath").value.trim()||S.settings.download_path||"";if(!isPlaylist&&askDestination){playlist=await chooseDownloadPlaylist();if(playlist===null)return;if(playlist==="__choose_folder__"){const choice=await api("/api/browse","POST",{initial:destination_path||""});if(!choice.path)return;destination_path=choice.path;playlist="Загрузки";}else if(playlist!=="Загрузки")destination_path="";}await enableDownloaderForImmediateDownload();const job=await api("/api/download/start","POST",{url,playlist,is_playlist:isPlaylist,destination_path,provider,playlist_title:playlistTitle});downloadJobs.set(job.id,job);renderDownloadJob(job);scheduleDownloadPoll(); }
 
 function showRemoteResults(items, isPlaylist=false) { const box=$("#downloadResults"); if(!items||!items.length){box.innerHTML='<div class="note">Ничего не найдено.</div>';return;} box.innerHTML=items.map((item,index)=>'<div class="download-result"><img src="'+safeDownloadText(item.thumbnail)+'" alt=""><div class="meta"><div class="title">'+safeDownloadText(item.title)+'</div><div class="sub">'+safeDownloadText(item.artist)+(item.duration?' · '+fmtTime(item.duration):'')+'</div></div><button class="btn small primary" data-download-item="'+index+'">MP3</button></div>').join(""); box._items=items; box._isPlaylist=isPlaylist; }
 async function runDownloadSearch(provider) { const query=$("[data-download-query=\""+provider+"\"]").value.trim(); if(!query)return toast("Введи название трека."); const box=$("#downloadResults"); box.innerHTML='<div class="note">Ищу…</div>'; try{ const data=await api("/api/download/search","POST",{provider,query}); showRemoteResults(data.results); }catch(e){box.innerHTML='<div class="note">'+safeDownloadText(e.message)+'</div>';}}
@@ -3987,6 +4168,18 @@ function bindSettings() {
   $("#panelBlur").addEventListener("input",e=>applyNumericSetting("panelBlur",Number(e.target.value)));
   slider("bgBlur", (v) => { setSetting({ background: { blur: v } }); applyBackground(); });
   slider("bgDimR", (v) => { setSetting({ background: { dim: v } }); applyBackground(); });
+  const setCrop=(key,value)=>{const id=key==="crop_x"?"bgCropX":key==="crop_y"?"bgCropY":"bgZoom";setSetting({background:{[key]:value}});setRange(id,value,"%");applyBackground();updateBackgroundCropPreview();};
+  $("#bgCropX").oninput=e=>setCrop("crop_x",Number(e.target.value));
+  $("#bgCropY").oninput=e=>setCrop("crop_y",Number(e.target.value));
+  $("#bgZoom").oninput=e=>setCrop("zoom",Number(e.target.value));
+  $("#bgCropReset").onclick=()=>{setCrop("crop_x",50);setCrop("crop_y",50);setCrop("zoom",100);};
+  let cropDrag=null;const cropBox=$("#bgCropPreview");
+  cropBox.addEventListener("pointerdown",e=>{if(e.button!==undefined&&e.button!==0)return;e.preventDefault();cropDrag={x:e.clientX,y:e.clientY,cx:Number(S.settings.background.crop_x??50),cy:Number(S.settings.background.crop_y??50),zoom:Math.max(1,Number(S.settings.background.zoom||100)/100)};cropBox.classList.add("dragging");cropBox.setPointerCapture(e.pointerId);});
+  cropBox.addEventListener("pointermove",e=>{if(!cropDrag)return;const rect=cropBox.getBoundingClientRect(),sensitivity=100/Math.max(.5,cropDrag.zoom-1);const dx=-(e.clientX-cropDrag.x)/rect.width*sensitivity,dy=-(e.clientY-cropDrag.y)/rect.height*sensitivity;const x=Math.round(Math.max(0,Math.min(100,cropDrag.cx+dx))),y=Math.round(Math.max(0,Math.min(100,cropDrag.cy+dy)));setSetting({background:{crop_x:x,crop_y:y}});setRange("bgCropX",x,"%");setRange("bgCropY",y,"%");applyBackground();updateBackgroundCropPreview();});
+  const stopCropDrag=()=>{cropDrag=null;cropBox.classList.remove("dragging");};
+  cropBox.addEventListener("pointerup",stopCropDrag);cropBox.addEventListener("pointercancel",stopCropDrag);cropBox.addEventListener("lostpointercapture",stopCropDrag);
+  cropBox.addEventListener("wheel",e=>{e.preventDefault();setCrop("zoom",Math.max(100,Math.min(300,Number(S.settings.background.zoom||100)+(e.deltaY<0?10:-10))));},{passive:false});
+  window.addEventListener("resize",updateBackgroundCropPreview);
   $("#bgType").addEventListener("click", (e) => {
     const b = e.target.closest("[data-type]"); if (!b) return;
     setSetting({ background: { type: b.dataset.type } }); applyBackground(); updateBgControls();
@@ -4141,6 +4334,7 @@ function bindUi() {
   $("#globalSearchForm").addEventListener("submit", e => { clearTimeout(globalSearchTimer); runGlobalSearch(e); });
   $("#globalProvider").addEventListener("change", e => {
     try { localStorage.setItem("last-frequency.search-provider.v2", e.target.value); } catch (_) {}
+    setSetting({search_provider:e.target.value},{immediate:true});
     if($("#globalSearch").value.trim()) { ++globalSearchSequence; clearTimeout(globalSearchTimer); globalSearchTimer=setTimeout(()=>runGlobalSearch(),180); }
   });
   $("#globalSearchKind").addEventListener("change",()=>{
@@ -4164,29 +4358,54 @@ function bindUi() {
   playlistNav.addEventListener("click", (e) => {
     const del = e.target.closest("[data-delete-playlist]");
     if (del) { deleteCustomPlaylist(del.dataset.deletePlaylist); return; }
+    if (e.target.closest("[data-delete-sample]")) { deleteSamplePlaylist(); return; }
     navClick(e);
   });
   playlistNav.addEventListener("dragstart",e=>{const row=e.target.closest("[data-playlist-drag]");if(!row)return;draggedPlaylist=row.dataset.playlistDrag;row.classList.add("dragging");e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",draggedPlaylist);});
   playlistNav.addEventListener("dragover",e=>{const row=e.target.closest("[data-playlist-drag]");if(!row||row.dataset.playlistDrag===draggedPlaylist)return;e.preventDefault();playlistNav.querySelectorAll(".drop-target").forEach(node=>node.classList.remove("drop-target"));row.classList.add("drop-target");});
   playlistNav.addEventListener("drop",e=>{const target=e.target.closest("[data-playlist-drag]");if(!target)return;e.preventDefault();const from=draggedPlaylist||e.dataTransfer.getData("text/plain"),to=target.dataset.playlistDrag;if(!from||!to||from===to)return;const ids=Array.from(playlistNav.querySelectorAll("[data-playlist-drag]"),node=>node.dataset.playlistDrag);const fromIndex=ids.indexOf(from);if(fromIndex<0)return;ids.splice(fromIndex,1);let toIndex=ids.indexOf(to);const rect=target.getBoundingClientRect();if(e.clientY>rect.top+rect.height/2)toIndex++;ids.splice(Math.max(0,toIndex),0,from);saveSidebarPlaylistOrder(ids);renderSidebar();});
   playlistNav.addEventListener("dragend",()=>{draggedPlaylist="";playlistNav.querySelectorAll(".dragging,.drop-target").forEach(node=>node.classList.remove("dragging","drop-target"));});
+  const trackList=$("#list");let draggedQueueId="",draggedPlaylistTrackId="",ignoreListClickUntil=0;
+  trackList.addEventListener("dragstart",e=>{
+    const row=e.target.closest("[data-queue-drag],[data-track-drag]");if(!row)return;
+    draggedQueueId=row.dataset.queueDrag||"";draggedPlaylistTrackId=row.dataset.trackDrag||"";
+    row.classList.add("dragging");e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",draggedQueueId||draggedPlaylistTrackId);
+  });
+  trackList.addEventListener("dragover",e=>{
+    const row=e.target.closest("[data-queue-drag],[data-track-drag]");if(!row)return;
+    if((draggedQueueId&&row.dataset.queueDrag)||(draggedPlaylistTrackId&&row.dataset.trackDrag)){
+      const targetId=row.dataset.queueDrag||row.dataset.trackDrag;
+      if(targetId!==(draggedQueueId||draggedPlaylistTrackId)){e.preventDefault();trackList.querySelectorAll(".drop-target").forEach(node=>node.classList.remove("drop-target"));row.classList.add("drop-target");}
+    }
+  });
+  trackList.addEventListener("drop",e=>{
+    const row=e.target.closest("[data-queue-drag],[data-track-drag]");if(!row)return;e.preventDefault();
+    const targetId=row.dataset.queueDrag||row.dataset.trackDrag,rect=row.getBoundingClientRect(),after=e.clientY>rect.top+rect.height/2;
+    if(draggedQueueId&&row.dataset.queueDrag)reorderUpcomingQueue(draggedQueueId,targetId,after);
+    else if(draggedPlaylistTrackId&&row.dataset.trackDrag)reorderVisiblePlaylist(draggedPlaylistTrackId,targetId,after);
+  });
+  trackList.addEventListener("dragend",()=>{ignoreListClickUntil=Date.now()+350;draggedQueueId=draggedPlaylistTrackId="";trackList.querySelectorAll(".dragging,.drop-target").forEach(node=>node.classList.remove("dragging","drop-target"));});
   $("#createPlaylist").onclick = createPlaylist;
   $("#exportPlaylist").onclick = exportCustomPlaylist;
   $("#importPlaylist").onclick = () => $("#playlistImportFile").click();
   $("#playlistImportFile").addEventListener("change", e => { importCustomPlaylistFile(e.target.files && e.target.files[0]); e.target.value=""; });
   function navClick(e) {
     const item = e.target.closest("[data-type]"); if (!item) return;
+    if(item.dataset.type==="radio"&&!isOnlineMode()){toast("Радио доступно в режимах «ЭкоОнлайн» и «Онлайн».");return;}
     S.view = { type: item.dataset.type, key: item.dataset.key || "" };
     if(S.view.type==="radio") {
-      if(!isOnlineMode()){toast("Радио доступно в режимах «ЭкоОнлайн» и «Онлайн».");return;}
+      if(!S.radioEnabled){S.radioSeen.clear();S.radioSeenOrder=[];S.radioQueue=[];S.queueSource="";}
       S.radioEnabled=true;S.search="";$("#search").value="";updateRadioUi();
     }
     renderSidebar(); renderList(); $("#listWrap").scrollTop = 0;
-    if(S.view.type==="radio"&&!S.radioQueue.length)loadRadioNext({playNow:false});
+    if(S.view.type==="radio"&&(!S.radioQueue.length||S.queueSource!=="radio:"))loadRadioNext({playNow:false});
   }
   $("#search").addEventListener("input", (() => { let t; return (e) => { clearTimeout(t); t = setTimeout(() => { S.search = e.target.value; renderList(); }, 120); }; })());
   $("#sort").onchange = (e) => { S.sort = e.target.value; renderList(); };
   $("#list").addEventListener("click", (e) => {
+    if(Date.now()<ignoreListClickUntil)return;
+    const queueRemove=e.target.closest("[data-queue-remove]");
+    if(queueRemove){e.stopPropagation();removeUpcomingTrack(queueRemove.dataset.queueRemove);return;}
     const sel = e.target.closest("[data-select]");
     if (sel) { e.stopPropagation(); toggleSelected(sel.dataset.select); return; }
     const fav = e.target.closest("[data-fav]");
@@ -4263,7 +4482,7 @@ function bindAudio() {
   audio.addEventListener("seeked", () => { updateMediaSession(); sendNowPlaying(); });
   audio.addEventListener("playing", () => { S.errorStreak = 0; updateMediaSession(true); });
   let miniLyricsSentAt=0;
-  audio.addEventListener("timeupdate", () => { updateSeekUi(); if(Date.now()-mediaSessionPositionAt>=1000)updateMediaSession(); if(S.settings?.mini_player?.lyrics_enabled!==false&&Date.now()-miniLyricsSentAt>2500){miniLyricsSentAt=Date.now();sendNowPlaying();} });
+  audio.addEventListener("timeupdate", () => { updateSeekUi(); countCurrentListenIfReady(); if(Date.now()-mediaSessionPositionAt>=1000)updateMediaSession(); if(S.settings?.mini_player?.lyrics_enabled!==false&&Date.now()-miniLyricsSentAt>2500){miniLyricsSentAt=Date.now();sendNowPlaying();} });
   audio.addEventListener("loadedmetadata", () => {
     if (S.current && Number.isFinite(audio.duration)) {
       S.durCache[S.current.id] = audio.duration;
@@ -4274,7 +4493,7 @@ function bindAudio() {
   });
   audio.addEventListener("durationchange", () => { updateSeekUi(); updateMediaSession(); });
   audio.addEventListener("ended", () => {
-    if(S.current&&!S.current.preview_only) recordPlayHistory(S.current);
+    if(S.current&&!S.current.preview_only&&!playCountedForSession){playCountedForSession=true;recordPlayHistory(S.current);}
     next(true);
   });
   audio.addEventListener("volumechange", () => { applyLayerVolumes(); updateVolumeUi(); setSetting({ volume: Math.round(audio.volume * 1000) / 1000 }); });
@@ -4317,19 +4536,35 @@ function bindKeys() {
 }
 
 /* ============================ запуск ============================ */
+async function checkForGitHubUpdate() {
+  if(!$("#settings").classList.contains("hidden")||!$("#setupWizardModal").classList.contains("hidden")||$("#cuteDialogBackdrop").classList.contains("open")) {
+    setTimeout(checkForGitHubUpdate,5000);return;
+  }
+  try {
+    const update=await api("/api/update-check");
+    if(!update.available||!update.latest)return;
+    try { if(localStorage.getItem("last-frequency.dismissed-update")===update.latest)return; } catch (_) {}
+    const accepted=await cutePrompt({title:`Вышло обновление ${update.latest}`,subtitle:"Скачать последнюю версию LAST FREQUENCY с GitHub?",confirmText:"Скачать",informational:true});
+    if(accepted)window.open(update.download_url||update.url,"_blank","noopener,noreferrer");
+    else try { localStorage.setItem("last-frequency.dismissed-update",update.latest); } catch (_) {}
+  } catch (_) {}
+}
 async function init() {
   hydrateIcons();
   try {
     const state = await api("/api/state");
     S.settings = state.settings; S.sources = state.sources; S.backgrounds = state.backgrounds; S.discord = state.discord;
+    playlistTrackOrder={...playlistTrackOrder,...(state.settings.playlist_track_order||{})};
     S.activePerformanceMode = state.active_performance_mode || state.settings.performance_mode || "eco_offline";
     await restorePlaybackHistory();
     await restoreCustomPlaylists();
     await restoreRemoteFavorites();
+    try { const sample=await api("/api/sample-playlist");S.samplePlaylistAvailable=!!sample.available; } catch (_) { S.samplePlaylistAvailable=false; }
     try {
       const legacyProvider = localStorage.getItem("last-frequency.search-provider.v1");
-      const rememberedProvider = localStorage.getItem("last-frequency.search-provider.v2") || (legacyProvider === "youtube" ? "youtube_music" : legacyProvider);
+      const rememberedProvider = localStorage.getItem("last-frequency.search-provider.v2") || (legacyProvider === "youtube" ? "youtube_music" : legacyProvider) || state.settings.search_provider;
       if (["all","youtube_music","youtube","soundcloud"].includes(rememberedProvider) && $("#globalProvider")) $("#globalProvider").value = rememberedProvider;
+      if (["all","youtube_music","youtube","soundcloud"].includes(rememberedProvider) && rememberedProvider!==state.settings.search_provider) setSetting({search_provider:rememberedProvider},{immediate:true});
       const rememberedKind=localStorage.getItem("last-frequency.search-kind.v1");
       if(["track","playlist"].includes(rememberedKind)&&$("#globalSearchKind"))$("#globalSearchKind").value=rememberedKind;
     } catch (_) {}
@@ -4346,7 +4581,10 @@ async function init() {
   renderSettingsDynamic(); syncSettingsUi(); renderProviderLinks(""); renderRecentlyPlayed();
   refreshMultiUi();
   await loadLibrary();
+  renderListeningStats();
   if(!S.settings.setup_complete)openSetupWizard(true);
+  setTimeout(checkForGitHubUpdate,7000);
+  setInterval(checkForGitHubUpdate,6*60*60*1000);
   setInterval(() => api("/api/ping").catch(() => {}), 15000);  // «я жив» — иначе плеер закроется сам
   setInterval(() => { if (!$("#settings").classList.contains("hidden")) return; api("/api/state").then((s) => { S.discord = s.discord; }).catch(() => {}); }, 20000);
   window.addEventListener("pagehide", () => {
