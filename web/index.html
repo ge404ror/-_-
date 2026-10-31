@@ -56,6 +56,7 @@ body.bold-font button,body.bold-font input,body.bold-font select{font-weight:700
 #bgImg{position:absolute;inset:-70px;background-size:cover;background-position:center;transition:background-image .5s,filter .3s}
 #bgClip{position:absolute;inset:-70px;width:calc(100% + 140px);height:calc(100% + 140px);object-fit:cover;opacity:0;pointer-events:none;transition:opacity .45s}
 #bgClip.active{opacity:1}
+#btnRefreshRadio[hidden],#radioProvider[hidden]{display:none!important}
 #bgDim{position:absolute;inset:0;background:rgba(var(--dim-rgb),var(--dim));transition:background .3s}
 #vizBackground{position:absolute;z-index:2;inset:0;width:100%;height:100%;pointer-events:none;opacity:.46;mix-blend-mode:normal}
 body.light #vizBackground{mix-blend-mode:normal;opacity:.38}
@@ -184,6 +185,8 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border:2px solid var(
 .np-controls{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:4px}.np-controls .playbtn{width:54px;height:54px}.np-controls .iconbtn{color:rgba(255,255,255,.76)}.np-sliders{width:min(100%,520px);display:flex;flex-direction:column;gap:8px}.np-volume-row{display:flex;align-items:center;gap:8px;width:100%}.np-volume-row #vol{flex:1;width:auto;min-width:0}.np-sliders .seekrow{max-width:none}
 .np-details{min-width:0;max-height:100%;height:100%;display:flex;align-items:stretch;overflow:hidden}.np-details .np-lyrics{width:100%;max-height:100%;height:100%;margin:0;padding:5vh clamp(16px,2vw,30px);border:0;border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;overflow:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;display:flex;flex-direction:column;justify-content:flex-start}.np-lyrics-head{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:14px}.np-lyrics-head strong{font-size:13px;color:rgba(255,255,255,.72)}.np-lyrics-status{display:block;color:rgba(255,255,255,.48);font-size:12px;line-height:1.5;white-space:pre-line}.np-lyric-line{display:block;width:100%;text-align:left;padding:clamp(4px,.6vh,10px) 0;border-radius:6px;color:rgba(255,255,255,.48);background:transparent;line-height:1.35;font-size:clamp(18px,1.65vw,31px);font-weight:750;transition:color .18s,opacity .18s,transform .18s}.np-lyric-line[data-seek]{cursor:pointer}.np-lyric-line[data-seek]:hover{color:rgba(255,255,255,.86);background:transparent}.np-lyric-line.active{color:rgba(255,255,255,.96);font-weight:800;transform:translateX(2px)}.lyric-word{border-radius:4px;transition:color .12s,background-color .12s}.lyric-word.singing{color:var(--accent);background:rgba(var(--accent-rgb),.2);box-shadow:0 0 18px rgba(var(--accent-rgb),.14)}.np-lyrics.collapsed .np-lyrics-body{display:none}
 .np-lyrics.has-lyrics #npLyricsTitle{display:none}.np-speed-row{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12px}.np-speed-row input{flex:1;min-width:0}.np-speed-row span{min-width:42px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
+.mode-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid rgba(var(--line-rgb),.1)}
+.download-result-wrap{display:grid;gap:4px}.download-result-actions{display:flex;gap:4px}.download-result-actions .btn{padding-inline:8px}.download-result-hint{padding-left:72px;font-size:10px;color:var(--muted)}
 .np .close{position:absolute;z-index:3;top:56px;right:24px;width:50px;height:50px;background:rgba(0,0,0,.3);box-shadow:0 4px 18px rgba(0,0,0,.25)}.np .close .icon{width:25px;height:25px}.np-open{position:absolute;right:24px;bottom:22px;background:rgba(0,0,0,.2)}
 body.now-playing-open .bar{visibility:hidden;pointer-events:none}
 
@@ -363,7 +366,7 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
 <link rel="icon" href="/favicon.ico?v=5" type="image/x-icon">
 </head>
 <body>
-<div id="bg"><canvas id="fireBackground"></canvas><div id="bgImg"></div><video id="bgClip" muted loop playsinline preload="metadata" aria-hidden="true"></video><div id="bgDim"></div><div id="maretuImageBackdrop" aria-hidden="true"></div><canvas id="vizBackground" aria-hidden="true"></canvas><div id="beatPulse" aria-hidden="true"></div><svg id="maretuBackdrop" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>
+<div id="bg"><canvas id="fireBackground"></canvas><div id="bgImg"></div><video id="bgClip" muted loop playsinline preload="none" aria-hidden="true"></video><div id="bgDim"></div><div id="maretuImageBackdrop" aria-hidden="true"></div><canvas id="vizBackground" aria-hidden="true"></canvas><div id="beatPulse" aria-hidden="true"></div><svg id="maretuBackdrop" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>
 <path id="maretuOuterStar" d="M800 18 873 148 1015 42 1000 204 1180 116 1111 286 1438 225 1280 387 1582 450 1280 513 1438 675 1111 614 1180 784 1000 696 1015 858 873 752 800 882 727 752 585 858 600 696 420 784 489 614 162 675 320 513 18 450 320 387 162 225 489 286 420 116 600 204 585 42 727 148Z"/>
 <path id="maretuInnerStar" d="M800 126 852 238 970 175 946 300 1084 268 1015 377 1190 450 1015 523 1084 632 946 600 970 725 852 662 800 774 748 662 630 725 654 600 516 632 585 523 410 450 585 377 516 268 654 300 630 175 748 238Z"/>
 <path id="maretuOvalWide" d="M800 36 C1260 36 1562 206 1562 450 C1562 694 1260 864 800 864 C340 864 38 694 38 450 C38 206 340 36 800 36Z"/>
@@ -514,11 +517,23 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
       <button class="tab" data-tab="download"><span data-icon="download"></span>Загрузки MP3</button>
       <button class="tab" data-tab="multi"><span data-icon="layers"></span>Мульти-треки</button>
       <button class="tab" data-tab="discord"><span data-icon="note"></span>Discord</button>
+      <button class="tab" data-tab="mode"><span data-icon="gear"></span>Режимы</button>
       <button class="tab" data-tab="misc"><span data-icon="gear"></span>Прочее</button>
       <button class="tab" data-tab="stats"><span data-icon="clock"></span>Частые треки</button>
     </div>
     <div class="pane">
       <button class="iconbtn closex" id="settingsClose" data-icon="close" title="Закрыть (Esc)"></button>
+
+      <section data-pane="mode" class="hidden">
+        <h4>Режим плеера</h4>
+        <div class="note">ЭкоОнлайн — обычный режим с меньшей нагрузкой. Онлайн включает больше визуальных эффектов. Оффлайн оставляет локальные треки; если при запуске нет интернета, плеер временно переключится в оффлайн автоматически.</div>
+        <div class="field"><div class="lab">Визуальный режим<small>ЭкоОнлайн — лёгкий интерфейс. Онлайн — больше визуальных эффектов.</small></div><div class="ctl"><select class="select" id="modeVisual"><option value="eco">ЭкоОнлайн</option><option value="online">Онлайн</option></select></div></div>
+        <div class="field"><div class="lab">Оффлайн<small>Отключает онлайн-поиск и загрузки после перезапуска.</small></div><div class="ctl"><label class="switch"><input type="checkbox" id="modeOffline"><span></span></label></div></div>
+        <h4>Клипы</h4>
+        <div class="field"><div class="lab">Клипы онлайн и докачка к трекам<small>При фоне «Обложка трека» плеер ищет и показывает клип без сохранения. В меню загрузки появятся «Скачать+» и «Скачать-». Отключение выключает поиск и онлайн-подгрузку клипов. Настройка применяется после перезапуска.</small></div><div class="ctl"><label class="switch"><input type="checkbox" id="modeClips"><span></span></label></div></div>
+        <div class="note" id="modeStatus" aria-live="polite"></div>
+        <div class="mode-actions"><button class="btn" id="modeRevert">Отменить изменения</button><button class="btn primary" id="modeApply" disabled>Применить</button></div>
+      </section>
 
       <section data-pane="look">
         <h4>Тема</h4>
@@ -651,8 +666,6 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
         <div class="field"><div class="lab">Настройки в файл<small>Сохраняет оформление и параметры плеера. Музыка и личные файлы не включаются.</small></div><div class="ctl"><button class="btn small" id="exportSettings">Скачать настройки</button><button class="btn small" id="importSettings">Загрузить настройки</button><input type="file" id="settingsImportFile" accept="application/json,.json" class="hidden"></div></div>
         <h4>Звук</h4>
         <div class="field"><div class="lab">Усилитель громкости<small>Усиливает звук треков до 25×, отдельно от основного ползунка громкости. Включён ограничитель пиков, но на высоких значениях звук может быть очень громким и искажаться — повышай постепенно.</small></div><div class="ctl"><input type="range" id="volBoost" min="100" max="2500" step="10"><span class="val" id="volBoostV"></span></div></div>
-        <h4>Производительность</h4>
-        <div class="field"><div class="lab">Режим работы<small>ЭкоОнлайн: онлайн-поиск и загрузки, но без тяжёлых эффектов. Онлайн: всё включено. ЭкоОффлайн: локальные файлы без интернета в экономном режиме. Оффлайн: локальные файлы с полными эффектами. Переключение требует перезапуска.</small><span id="performanceModeStatus" class="muted"></span></div><div class="ctl"><select class="select" id="performanceMode"><option value="eco_online">ЭкоОнлайн</option><option value="online">Онлайн</option><option value="eco_offline">ЭкоОффлайн</option><option value="offline">Оффлайн</option></select></div></div>
         <h4 id="dvdSettingsTitle">DVD заставка</h4>
         <div class="field"><div class="lab">Летающая картинка<small>Картинки летают под панелью песен и отскакивают от краёв окна.</small></div><div class="ctl"><label class="switch"><input type="checkbox" id="dvdEnabled"><span></span></label></div></div>
         <div class="field"><div class="lab">Картинки для заставки<small>Можно добавить несколько — каждая будет летать в своей части окна.</small></div><div class="ctl"><button class="btn small" id="dvdUpload"><span data-icon="image"></span>Добавить изображения</button><input type="file" id="dvdFile" accept="image/*" multiple class="hidden"></div></div>
@@ -728,11 +741,8 @@ body.mono-theme #bgDim{background:rgba(0,0,0,.42)}body.mono-theme #bgImg{filter:
           <div id="wizardSampleTracks" class="setup-sample-tracks"></div>
         </section>
         <section data-setup-step="3" class="hidden">
-          <h3>4. Режим работы</h3><div class="note">Выбери один режим. Онлайн-поиск доступен в первых двух; полная экономия отключает визуальные эффекты.</div>
-          <label class="setup-mode"><input type="radio" name="wizardMode" value="eco_online"><span><b>ЭкоОнлайн</b><small>Онлайн-поиск и воспроизведение, лёгкий интерфейс и низкая нагрузка.</small></span></label>
-          <label class="setup-mode"><input type="radio" name="wizardMode" value="online"><span><b>Онлайн</b><small>Все эффекты, онлайн-поиск и воспроизведение.</small></span></label>
-          <label class="setup-mode"><input type="radio" name="wizardMode" value="eco_offline"><span><b>ЭкоОффлайн</b><small>Только локальная музыка, минимальный расход ресурсов.</small></span></label>
-          <label class="setup-mode"><input type="radio" name="wizardMode" value="offline"><span><b>Оффлайн</b><small>Только локальная музыка со всеми визуальными эффектами.</small></span></label>
+          <h3>4. Режимы</h3><div class="note">ЭкоОнлайн, Онлайн, Оффлайн и подгрузка клипов настраиваются вместе в категории «Режимы». Изменения применяются после одного перезапуска.</div>
+          <button class="btn" id="wizardOpenModes">Настроить режимы</button>
         </section>
       </div>
     </div>
@@ -1248,6 +1258,7 @@ function loadRemoteFavorites() {
 const S = {
   settings: null, sources: [], backgrounds: [], discord: { state: "off", message: "" },
   activePerformanceMode: "eco_offline",
+  activeClipsEnabled: true, automaticOfflineFallback: false,
   tracks: [], byId: new Map(), playlists: [], customPlaylists: loadCustomPlaylists(), counts: {}, scanning: false, libVersion: -1, libraryLoaded: false,
   view: { type: "home", key: "" }, search: "", sort: "default",
   selectMode: false, selected: new Set(),
@@ -1269,6 +1280,7 @@ function isOnlineMode() { return ["eco_online", "online"].includes(runtimePerfor
 function runtimePerformanceMode() { return S.activePerformanceMode || S.settings?.performance_mode || "eco_offline"; }
 const audio = $("#audio");
 let activeHlsPlayer = null;
+let backgroundClipRequest = 0;
 let radioRecommendationRequest=0,radioRefreshTimer=0,radioPreloadSequence=0;
 let playCountedForSession=false;
 let hlsLibraryPromise = null;
@@ -1368,6 +1380,7 @@ window.addEventListener("pagehide", () => {
 
 /* ============================ настройки: хранение ============================ */
 let patchAcc = {}, saveTimer = null;
+let modeDraft = null;
 function setSetting(patch, { immediate = false } = {}) {
   deepMerge(S.settings, patch);
   deepMerge(patchAcc, patch);
@@ -1388,10 +1401,8 @@ async function flushSettings() {
     S.settings.performance_mode = res.settings.performance_mode;
     S.settings.mp3_downloader_enabled = res.settings.mp3_downloader_enabled;
     S.activePerformanceMode = res.active_performance_mode || S.activePerformanceMode;
-    if (patch.performance_mode) {
-      const status = $("#performanceModeStatus");
-      if (status) status.textContent = " · Перезапуск для применения режима";
-    }
+    S.activeClipsEnabled = res.active_clips_enabled !== false;
+    S.automaticOfflineFallback = !!res.automatic_offline;
     if ("sources" in patch || "bot_folder" in patch) refreshLibrarySoon();
     renderSettingsDynamic();
     return true;
@@ -1547,6 +1558,37 @@ function moveDvdIcon(now) {
     for (const sprite of dvdSprites) sprite.img.style.transform = turn;
   }
 }
+async function loadBackgroundClip(track) {
+  const clip=$("#bgClip"),id=String(track?.id||"");
+  if(!clip||!id)return;
+  const request=++backgroundClipRequest;
+  clip.pause();clip.classList.remove("active");clip.removeAttribute("src");clip.load();
+  clip.dataset.trackId=id;clip.dataset.failed="";
+  if(!S.activeClipsEnabled)return;
+  try {
+    const result=await api("/api/clips/resolve","POST",{id,title:track.title||"",artist:track.artist||""});
+    if(request!==backgroundClipRequest||S.settings?.background?.type!=="cover"||String(S.current?.id||"")!==id)return;
+    if(!result?.found||!result.url){clip.dataset.failed=id;return;}
+    clip.dataset.local=result.local?"1":"0";
+    clip.src=tk(result.url);clip.load();
+  } catch (_) {
+    if(request===backgroundClipRequest)clip.dataset.failed=id;
+  }
+}
+function syncBackgroundClip(forceSeek=false) {
+  const clip=$("#bgClip");
+  if(!clip||!clip.currentSrc||clip.dataset.trackId!==String(S.current?.id||""))return;
+  if(clip.readyState>=1&&Number.isFinite(audio.currentTime)) {
+    const duration=Number(clip.duration)||0;
+    const target=duration>0?audio.currentTime%duration:audio.currentTime;
+    if(forceSeek||Math.abs((Number(clip.currentTime)||0)-target)>1.25) {
+      try { clip.currentTime=Math.max(0,target); } catch (_) {}
+    }
+    try { clip.playbackRate=audio.playbackRate||1; } catch (_) {}
+  }
+  if(audio.paused||audio.ended)clip.pause();
+  else if(clip.readyState>=2)clip.play().catch(()=>{});
+}
 function applyBackground() {
   const b = S.settings.background, node = $("#bgImg"), style = node.style;
   const effectsEnabled = !isEcoMode();
@@ -1584,18 +1626,17 @@ function applyBackground() {
     if(b.type==="cover"&&trackId){
       const id=String(trackId);
       if(clip.dataset.trackId!==id){
-        clip.classList.remove("active");clip.dataset.trackId=id;clip.dataset.failed="";
-        clip.src=tk("/clip/"+encodeURIComponent(id));clip.load();
-        clip.play().catch(()=>{});
-      } else if(!clip.dataset.failed&&!clip.error&&!clip.paused) clip.classList.add("active");
+        loadBackgroundClip(S.current);
+      } else if(!clip.dataset.failed&&clip.currentSrc) syncBackgroundClip();
     } else {
-      clip.classList.remove("active");clip.pause();clip.removeAttribute("src");clip.load();clip.dataset.trackId="";clip.dataset.failed="";
+      backgroundClipRequest++;clip.classList.remove("active");clip.pause();clip.removeAttribute("src");clip.load();clip.dataset.trackId="";clip.dataset.failed="";
     }
   }
   document.documentElement.style.setProperty("--dim", String(b.dim / 100));
   updateDvdIcon();
 }
-$("#bgClip").addEventListener("canplay",event=>{const clip=event.currentTarget;if(S.settings?.background?.type==="cover"&&clip.dataset.trackId===String(S.current?.id||""))clip.classList.add("active");});
+$("#bgClip").addEventListener("canplay",event=>{const clip=event.currentTarget;if(S.settings?.background?.type==="cover"&&clip.dataset.trackId===String(S.current?.id||"")){clip.classList.add("active");syncBackgroundClip(true);}});
+$("#bgClip").addEventListener("playing",event=>{const clip=event.currentTarget;if(S.settings?.background?.type==="cover"&&clip.dataset.trackId===String(S.current?.id||""))clip.classList.add("active");});
 $("#bgClip").addEventListener("error",event=>{const clip=event.currentTarget;clip.classList.remove("active");clip.dataset.failed=clip.dataset.trackId||"1";});
 function updateBackgroundCropPreview() {
   const settings=S.settings?.background||{}, box=$("#bgCropPreview"), image=$("#bgCropImage");
@@ -2211,6 +2252,7 @@ function deleteSelectedTracks() {
 async function downloadSelectedClips() {
   const tracks=Array.from(S.selected,id=>S.byId.get(id)||S.onlineTracks.get(id)||storedRemoteTrack(id)).filter(track=>track?.id&&track.title);
   if(!tracks.length){toast("Сначала выбери треки для клипов.");return;}
+  if(!S.activeClipsEnabled){toast("Подгрузка и скачивание клипов выключены в настройках «Режимы». Перезапусти плеер после включения.");return;}
   if(!isOnlineMode()){toast("Скачивание клипов доступно в режимах «ЭкоОнлайн» и «Онлайн».");return;}
   const button=$("#btnDownloadClips"),original=button.innerHTML;
   let done=0,failed=0;
@@ -2221,11 +2263,11 @@ async function downloadSelectedClips() {
       button.innerHTML=`${icon("video")} ${index+1}/${tracks.length}`;
       try{
         let job=await api("/api/clips/download","POST",{id:track.id,title:track.title,artist:track.artist||""});
-        while(job.status!=="finished"&&job.status!=="failed"){
+        while(job.status!=="finished"&&job.status!=="failed"&&job.status!=="cancelled"){
           await new Promise(resolve=>setTimeout(resolve,1000));
           job=await api("/api/clips/status?id="+encodeURIComponent(job.id));
         }
-        if(job.status==="failed")throw new Error(job.error||"Клип не найден");
+        if(job.status!=="finished")throw new Error(job.error||"Клип не найден");
         done++;
         if(S.current?.id===track.id&&S.settings.background.type==="cover"){$("#bgClip").dataset.trackId="";applyBackground();}
       }catch(error){failed++;console.warn("Не удалось скачать клип",track.title,error);}
@@ -2727,6 +2769,13 @@ window.ecoMiniSeek = value => {
   audio.currentTime = Math.max(0, Math.min(Number(value), Number(audio.duration || value)));
   updateNowPlayingUi(); sendNowPlaying();
 };
+function toggleMiniLyricsFromFloating() {
+  const enabled=S.settings?.mini_player?.lyrics_enabled===false;
+  $("#miniLyricsEnabled").checked=enabled;
+  setSetting({mini_player:{lyrics_enabled:enabled}},{immediate:true});
+  sendNowPlaying();
+  return enabled;
+}
 function miniQueueForView() {
   if (S.view.type === "pl") return S.tracks.filter(track => track.pl === S.view.key).slice().sort(trackSort);
   if (S.view.type === "custompl") {
@@ -2771,6 +2820,7 @@ window.ecoMiniDispatch = command => {
   else if (command.action === "next") next(false);
   else if (command.action === "previous") prev();
   else if (command.action === "volume") { audio.muted = false; audio.volume = clamp(Number(command.value), 0, 1); }
+  else if (command.action === "lyrics") toggleMiniLyricsFromFloating();
   else if (command.action === "shuffle") toggleShuffle();
   else if (command.action === "repeat") cycleRepeat();
   else if (command.action === "playlist") return miniSelectPlaylist(String(command.value || ""));
@@ -3225,6 +3275,9 @@ async function openSettings(tab) {
     const latest = await api("/api/settings");
     S.settings = latest.settings; S.sources = latest.sources; S.backgrounds = latest.backgrounds; S.discord = latest.discord;
     S.activePerformanceMode = latest.active_performance_mode || S.activePerformanceMode;
+    S.activeClipsEnabled = latest.active_clips_enabled !== false;
+    S.automaticOfflineFallback = !!latest.automatic_offline;
+    resetModesDraft();
   } catch (_) { /* оставляем текущее состояние, если сервер уже закрывается */ }
   $("#settings").classList.remove("hidden");
   if (tab) selectTab(tab);
@@ -3262,8 +3315,6 @@ function renderSetupWizard() {
   $("#wizardMusicSource").checked=!!S.settings.sources?.find(source=>source.id==="music")?.enabled;
   $("#wizardBotSource").checked=!!S.settings.sources?.find(source=>source.id==="bot")?.enabled;
   $("#wizardSourceList").innerHTML=(S.sources||[]).map(source=>`<div class="setup-source-item" title="${esc(source.path||source.label)}">${source.enabled?"✓":"○"} ${esc(source.label)} · ${esc(source.path||"папка не выбрана")}</div>`).join("");
-  const mode=String(S.settings.performance_mode||"eco_offline");
-  const selected=$("input[name=wizardMode][value=\""+mode+"\"]"); if(selected)selected.checked=true;
   renderSetupSample(); renderSetupThemeCards(); applySetupPreview();
 }
 function renderSetupThemeCards() {
@@ -3287,11 +3338,9 @@ function openSetupWizard(firstRun=false) {
 }
 function closeSetupWizard() { $("#setupWizardModal").classList.add("hidden"); }
 async function finishSetupWizard() {
-  const oldMode=runtimePerformanceMode();
   const saved=await setSetting({setup_complete:true},{immediate:true});
   if(saved===false)return;
   closeSetupWizard();
-  if(S.settings.performance_mode!==oldMode)toast("Режим сохранён. Перезапусти плеер, чтобы применить его.");
   if(S.samplePlaylistAvailable&&!$("#wizardKeepSample").checked)await deleteSamplePlaylist();
   setupWizardFirstRun=false;
 }
@@ -3315,6 +3364,7 @@ function bindSetupWizard() {
   $("#setupBack").onclick=()=>{setupStep=Math.max(0,setupStep-1);renderSetupWizard();};
   $("#setupNext").onclick=()=>{setupStep=Math.min(3,setupStep+1);renderSetupWizard();};
   $("#setupFinish").onclick=finishSetupWizard;
+  $("#wizardOpenModes").onclick=async()=>{const saved=await setSetting({setup_complete:true},{immediate:true});if(saved===false)return;setupWizardFirstRun=false;closeSetupWizard();await openSettings("mode");};
   $("#wizardThemes").addEventListener("click",event=>{const card=event.target.closest("[data-wizard-theme]");if(!card)return;apply({theme:card.dataset.wizardTheme,accent:""});renderSetupThemeCards();renderSettingsDynamic();syncSettingsUi();});
   $("#wizardRadius").oninput=event=>{const value=Number(event.target.value);$("#wizardRadiusValue").textContent=value+" px";apply({radius:value});};
   $("#wizardGlass").oninput=event=>{const value=Number(event.target.value);$("#wizardGlassValue").textContent=value+"%";apply({glass:value});};
@@ -3327,7 +3377,6 @@ function bindSetupWizard() {
   $("#wizardBgFile").onchange=async event=>{const file=event.target.files?.[0];event.target.value="";if(!file)return;if(file.size>25*1024*1024)return toast("Файл больше 25 МБ");try{const response=await fetch(tk("/api/background?name="+encodeURIComponent(file.name)),{method:"POST",body:file});const result=await response.json();if(!response.ok)throw new Error(result.error||"Ошибка загрузки");S.backgrounds=result.backgrounds;await setSetting({background:{type:"image",image:result.name}},{immediate:true});applyTheme();applyBackground();applySetupPreview();toast("Фон добавлен.");}catch(error){toast(error.message||"Не удалось загрузить картинку.");}};
   $("#wizardMusicSource").onchange=event=>setWizardSourceEnabled("music",event.target.checked);
   $("#wizardBotSource").onchange=event=>setWizardSourceEnabled("bot",event.target.checked);
-  $$("input[name=wizardMode]").forEach(input=>input.onchange=event=>{if(event.target.checked){setSetting({performance_mode:event.target.value},{immediate:true}).then(()=>{S.settings.performance_mode=event.target.value;});}});
   $("#wizardBrowseSource").onclick=async()=>{try{const result=await api("/api/browse","POST",{initial:$("#wizardExtraSource").value.trim()});if(result.path)$("#wizardExtraSource").value=result.path;}catch(error){toast(error.message);}};
   $("#wizardAddSource").onclick=addWizardSource;
   $("#wizardOpenSample").onclick=()=>{const playlist=setupSamplePlaylist();if(!playlist)return toast("Тестовый плейлист пока не найден. Пересканируй папку music.");closeSetupWizard();S.view={type:"pl",key:playlist.key};renderSidebar();renderList();$("#listWrap").scrollTop=0;};
@@ -3349,16 +3398,80 @@ async function importSettingsFile(file) {
     if(!incoming||typeof incoming!=="object"||Array.isArray(incoming))throw new Error("В файле нет объекта с настройками.");
     const confirmed=await cutePrompt({title:"Загрузить настройки?",subtitle:"Текущие параметры будут заменены настройками из файла.",confirmText:"Загрузить",confirmOnly:true});
     if(!confirmed)return;
-    const previousMode=S.settings.performance_mode;
     await flushSettings();
     const result=await api("/api/settings","POST",incoming);
     S.settings=result.settings;S.sources=result.sources;S.backgrounds=result.backgrounds;S.discord=result.discord;
     S.activePerformanceMode=result.active_performance_mode||S.activePerformanceMode;
+    S.activeClipsEnabled=result.active_clips_enabled!==false;
+    S.automaticOfflineFallback=!!result.automatic_offline;
+    resetModesDraft();
     renderSettingsDynamic();syncSettingsUi();applyTheme();applyPerformanceModeUi();
-    if(S.settings.performance_mode!==previousMode)toast("Настройки загружены. Для смены режима перезапусти плеер.");else toast("Настройки загружены.");
+    const pendingMode=!S.automaticOfflineFallback&&S.activePerformanceMode!==S.settings.performance_mode;
+    const pendingClips=S.activeClipsEnabled!==(S.settings.clips_enabled!==false);
+    toast(pendingMode||pendingClips?"Настройки загружены. Режимы можно применить в категории «Режимы».":"Настройки загружены.");
   } catch(error) { toast("Не удалось загрузить настройки: "+String(error.message||error)); }
 }
 async function pollDownloaderStatus(){const node=$("#downloaderIdleStatus");if(!node||!isOnlineMode())return;try{const state=await api("/api/download/idle");S.settings.mp3_downloader_enabled=state.enabled;$("#mp3DownloaderEnabled").checked=state.enabled;$("#mp3DownloaderControls").classList.toggle("hidden",!state.enabled);node.textContent=!state.enabled?"Установщик полностью отключён. Включи его переключателем, чтобы снова искать и скачивать.":state.active?"Идёт загрузка. Таймер выключения запустится после её завершения.":state.counting?"Установщик отключится через "+state.seconds_left+" с без новых загрузок (таймаут "+state.timeout+" с).":"Установщик включён. Таймер начнётся после завершения первой загрузки.";}catch(_){node.textContent="Не удалось получить состояние установщика.";}}
+function modeParts(mode) {
+  return {visual: ["online","offline"].includes(mode) ? "online" : "eco",
+          offline: ["eco_offline","offline"].includes(mode)};
+}
+function modeValue(parts) {
+  return parts.offline ? (parts.visual==="online"?"offline":"eco_offline")
+                       : (parts.visual==="online"?"online":"eco_online");
+}
+function resetModesDraft() {
+  if(!S.settings)return;
+  const parts=modeParts(S.settings.performance_mode||"eco_offline");
+  modeDraft={...parts,clips:S.settings.clips_enabled!==false};
+  if($("#modeVisual"))$("#modeVisual").value=modeDraft.visual;
+  if($("#modeOffline"))$("#modeOffline").checked=modeDraft.offline;
+  if($("#modeClips"))$("#modeClips").checked=modeDraft.clips;
+  renderModesDraft();
+}
+function renderModesDraft() {
+  if(!modeDraft||!S.settings)return;
+  const dirty=modeValue(modeDraft)!==(S.settings.performance_mode||"eco_offline")
+    ||modeDraft.clips!==(S.settings.clips_enabled!==false);
+  const apply=$("#modeApply"),revert=$("#modeRevert"),status=$("#modeStatus");
+  const pending=(!S.automaticOfflineFallback&&S.activePerformanceMode!==(S.settings.performance_mode||"eco_offline"))
+    ||S.activeClipsEnabled!==(S.settings.clips_enabled!==false);
+  if(apply)apply.disabled=!dirty&&!pending;
+  if(revert)revert.disabled=!dirty;
+  if(!status)return;
+  status.textContent=dirty
+    ? "Изменения пока черновые. Нажми «Применить», чтобы сохранить и перезапустить плеер."+(S.automaticOfflineFallback?" Сейчас интернет недоступен, поэтому активен временный оффлайн.":"")
+    : pending
+      ? "Настройки уже сохранены и применятся при перезапуске."
+      : S.automaticOfflineFallback
+        ? "Интернет не доступен — при запуске плеер временно включил оффлайн."
+        : "Изменений нет. Новые настройки применяются после перезапуска.";
+}
+function updateModesDraft() {
+  modeDraft={visual:$("#modeVisual").value,offline:$("#modeOffline").checked,clips:$("#modeClips").checked};
+  renderModesDraft();
+}
+async function applyModesDraft() {
+  if(!modeDraft)return;
+  const mode=modeValue(modeDraft),clips=modeDraft.clips;
+  const dirty=mode!==(S.settings.performance_mode||"eco_offline")||clips!==(S.settings.clips_enabled!==false);
+  const pending=(!S.automaticOfflineFallback&&S.activePerformanceMode!==(S.settings.performance_mode||"eco_offline"))
+    ||S.activeClipsEnabled!==(S.settings.clips_enabled!==false);
+  if(!dirty&&!pending)return;
+  const modeLabel=modeDraft.visual==="eco"?"ЭкоОнлайн — обычный режим":"Онлайн — больше визуальных эффектов";
+  const offlineLabel=modeDraft.offline?"Оффлайн включён.":"Оффлайн выключен.";
+  const clipLabel=clips?"Онлайн-подгрузка клипов и «Скачать+» включены.":"Онлайн-подгрузка клипов и «Скачать+» выключены.";
+  const accepted=await cutePrompt({title:"Перезапустить плеер?",subtitle:`${modeLabel}. ${offlineLabel} ${clipLabel} Настройки сохранятся после перезапуска.`,confirmText:"Применить и перезапустить",confirmOnly:true});
+  if(!accepted)return;
+  try {
+    if(!await flushSettings())throw new Error("Не удалось сохранить остальные настройки.");
+    const result=await api("/api/settings","POST",{performance_mode:mode,clips_enabled:clips});
+    S.settings=result.settings;S.activePerformanceMode=result.active_performance_mode||S.activePerformanceMode;
+    S.activeClipsEnabled=result.active_clips_enabled!==false;S.automaticOfflineFallback=!!result.automatic_offline;
+    resetModesDraft();applyPerformanceModeUi();
+    await api("/api/restart","POST",{});showRestartOverlay();
+  } catch(error) { toast("Не удалось применить режимы: "+String(error.message||error)); }
+}
 function applyPerformanceModeUi() {
   const economy = isEcoMode();
   const noDownloads = !isOnlineMode();  // онлайн-поиск доступен только в онлайн-режимах
@@ -3376,17 +3489,14 @@ function applyPerformanceModeUi() {
   $("#bgAnimRow")?.classList.toggle("hidden", economy);
   const toggle = $("#mp3DownloaderEnabled");
   if (toggle) { toggle.checked = !noDownloads && S.settings?.mp3_downloader_enabled !== false; toggle.disabled = noDownloads; }
-  const status = $("#performanceModeStatus");
-  if (status) status.textContent = S.activePerformanceMode !== (S.settings?.performance_mode || "eco_offline")
-    ? " · Перезапуск необходим"
-    : noDownloads
-      ? (economy ? " · ЭкоОффлайн применён" : " · Оффлайн-режим применён")
-      : (economy ? " · ЭкоОнлайн применён" : " · Онлайн-режим применён");
+  const clipDownloadButton=$("#btnDownloadClips");
+  if(clipDownloadButton)clipDownloadButton.classList.toggle("hidden",!S.activeClipsEnabled||noDownloads);
   if (economy) {
     stopFxLoop(); vizLoop.stop(); resizeViz();
     FX.fire = null; updateDvdIcon();
   }
   applyBackground(); updateThemeFx(); updateDvdIcon();
+  renderModesDraft();
   if (!economy) { resizeFx(); resizeViz(); startViz(); }
 }
 function selectTab(name) {
@@ -3473,7 +3583,7 @@ function syncSettingsUi() {
   setRange("dvdSize", c.dvd_size || 112, " px"); $("#dvdRotate").checked=!!c.dvd_rotate; setRange("dvdRotationSpeed", c.dvd_rotation_speed || 1, "×");
   $("#downloadPath").value=c.download_path||"";
   $("#mp3DownloaderEnabled").checked=c.mp3_downloader_enabled!==false;$("#mp3DownloaderControls").classList.toggle("hidden",c.mp3_downloader_enabled===false);
-  $("#performanceMode").value=c.performance_mode||"eco_offline";applyPerformanceModeUi();pollDownloaderStatus();
+  applyPerformanceModeUi();pollDownloaderStatus();renderModesDraft();
    $("#dvdImageGallery").innerHTML=(c.dvd_images|| (c.dvd_image?[c.dvd_image]:[])).map((name,index)=>`<div class="item" title="${esc(name)}"><img alt="" loading="lazy" src="${esc(tk("/bg/"+name))}"><button data-dvd-copy="${index}" title="Создать копию">⧉</button><button data-dvd-del="${index}" title="Удалить">${icon("close")}</button></div>`).join("") || `<div class="note">Картинки не добавлены.</div>`;
   $("#gradientColor1").value=c.background.color;$("#gradientColor2").value=c.background.color2||"#1a1d3a";$("#gradientStyle").value=c.background.gradient_style||"linear";setRange("gradientAngle",c.background.gradient_angle||135,"°");
   $("#multiOn").checked = multiOn(); $("#multiLoop").checked = !!c.multi.loop_default;
@@ -4130,7 +4240,7 @@ let discordPoll = null;
 function pollDiscord() {
   clearTimeout(discordPoll);
   if ($("#settings").classList.contains("hidden")) return;
-  api("/api/state").then((st) => { S.discord = st.discord; renderDiscordStatus(); }).catch(() => {});
+  api("/api/state").then((st) => { S.discord = st.discord;S.activeClipsEnabled=st.active_clips_enabled!==false;S.automaticOfflineFallback=!!st.automatic_offline;renderDiscordStatus();renderModesDraft(); }).catch(() => {});
   discordPoll = setTimeout(pollDiscord, 2500);
 }
 function sourcesPayload() {
@@ -4158,7 +4268,7 @@ function saveDownloadHistory(){try{localStorage.setItem(DOWNLOAD_HISTORY_KEY,JSO
 function renderDownloadHistory(){const box=$("#downloadHistory"),count=$("#downloadHistoryCount");if(!box||!count)return;count.textContent=String(downloadHistory.length);box.innerHTML=`<div class="job-head" style="margin-bottom:7px"><b>Недавние загрузки</b><span style="flex:1"></span>${downloadHistory.length?'<button class="btn small" data-download-history-clear>Очистить</button>':''}</div>`+(downloadHistory.length?`<div class="download-history-list">${downloadHistory.map(item=>`<div class="download-history-item ${item.status==='failed'?'failed':''}"><span class="name" title="${safeDownloadText(item.name)}">${safeDownloadText(item.name)}</span><span class="result">${safeDownloadText(item.result||'Готово')}</span></div>`).join('')}</div>`:'<div class="note">История пока пуста.</div>');}
 function archiveDownloadJob(job){if(job._archived)return;job._archived=true;const card=$("#downloadActive").querySelector(`[data-job="${CSS.escape(job.id)}"]`);if(card)card.remove();downloadJobs.delete(job.id);downloadHistory.unshift({name:job.filename||"Загрузка MP3",status:job.status,result:job.error||(job.result?.skipped_drm?`Скачано ${job.result.downloaded}; DRM пропущено: ${job.result.skipped_drm}`:job.status==="finished"?"Готово":"Отменено"),time:Date.now()});downloadHistory=downloadHistory.slice(0,30);saveDownloadHistory();renderDownloadHistory();}
 
-function renderDownloadJob(job){const box=$("#downloadActive");let card=box.querySelector(`[data-job="${CSS.escape(job.id)}"]`);if(!card){card=document.createElement("div");card.className="download-job";card.dataset.job=job.id;box.prepend(card);}const done=["finished","failed","cancelled"].includes(job.status),canCancel=!done&&job.status!=="cancelling",pct=Math.max(0,Math.min(100,Number(job.percent)||0));const status=job.status==="finished"?"Готово":job.status==="failed"?"Ошибка":job.status==="cancelled"?"Отменено":job.status==="cancelling"?"Отменяю…":job.status==="preparing"?"В очереди загрузки…":job.status==="processing"?"Обработка MP3…":"Скачивается";const size=job.total?`${formatBytes(job.downloaded)} из ${formatBytes(job.total)}`:formatBytes(job.downloaded);const speed=job.speed?` · ${formatBytes(job.speed)}/с`:"";const detail=job.error||(job.result?.skipped_drm?`Скачано ${job.result.downloaded}; DRM-защищённых пропущено: ${job.result.skipped_drm}`:`${pct.toFixed(1)}% · ${size}${speed}`);card.innerHTML=`<div class="job-head"><b class="job-title">${safeDownloadText(job.filename||"Загрузка MP3")}</b><span>${status}</span></div><progress max="100" value="${pct}"></progress><div class="job-meta"><span>${safeDownloadText(detail)}</span>${canCancel?`<button class="btn small danger" data-download-cancel="${safeDownloadText(job.id)}">Отменить</button>`:""}</div>`;if(job.status==="finished"&&!job.notified){job.notified=true;toast(job.result?.skipped_drm?`MP3 загружен; DRM-защищённых пропущено: ${job.result.skipped_drm}`:"MP3 загружен и добавлен в библиотеку");refreshLibrarySoon();}if(done&&!job._settleTimer)job._settleTimer=setTimeout(()=>archiveDownloadJob(job),10000);}
+function renderDownloadJob(job){const box=$("#downloadActive");let card=box.querySelector(`[data-job="${CSS.escape(job.id)}"]`);if(!card){card=document.createElement("div");card.className="download-job";card.dataset.job=job.id;box.prepend(card);}const done=["finished","failed","cancelled"].includes(job.status),canCancel=!done&&job.status!=="cancelling",pct=Math.max(0,Math.min(100,Number(job.percent)||0));const clipStage=job.status==="processing"&&String(job.filename||"").startsWith("Докачиваю клип");const status=job.status==="finished"?"Готово":job.status==="failed"?"Ошибка":job.status==="cancelled"?"Отменено":job.status==="cancelling"?"Отменяю…":job.status==="preparing"?"В очереди загрузки…":clipStage?"Докачиваю клип…":job.status==="processing"?"Обработка MP3…":"Скачивается";const size=job.total?`${formatBytes(job.downloaded)} из ${formatBytes(job.total)}`:formatBytes(job.downloaded);const speed=job.speed?` · ${formatBytes(job.speed)}/с`:"";const detail=job.error||(job.result?.skipped_drm?`Скачано ${job.result.downloaded}; DRM-защищённых пропущено: ${job.result.skipped_drm}`:`${pct.toFixed(1)}% · ${size}${speed}`);card.innerHTML=`<div class="job-head"><b class="job-title">${safeDownloadText(job.filename||"Загрузка MP3")}</b><span>${status}</span></div><progress max="100" value="${pct}"></progress><div class="job-meta"><span>${safeDownloadText(detail)}</span>${canCancel?`<button class="btn small danger" data-download-cancel="${safeDownloadText(job.id)}">Отменить</button>`:""}</div>`;if(job.status==="finished"&&!job.notified){job.notified=true;const failed=Number(job.result?.clips_failed)||0;toast(job.result?.skipped_drm?`MP3 загружен; DRM-защищённых пропущено: ${job.result.skipped_drm}`:failed?`MP3 добавлен в библиотеку, но клип не найден.`:"MP3 загружен и добавлен в библиотеку");refreshLibrarySoon();}if(done&&!job._settleTimer)job._settleTimer=setTimeout(()=>archiveDownloadJob(job),10000);}
 function scheduleDownloadPoll(){clearTimeout(downloadPollTimer);if(!Array.from(downloadJobs.values()).some(job=>!["finished","failed","cancelled"].includes(job.status)))return;downloadPollTimer=setTimeout(pollDownloadJobs,700);}
 async function pollDownloadJobs(){for(const [id,job] of downloadJobs){if(["finished","failed","cancelled"].includes(job.status))continue;try{const latest=await api("/api/download/status?id="+encodeURIComponent(id));Object.assign(job,latest);renderDownloadJob(job);}catch(error){downloadJobs.delete(id);toast(error.message);}}scheduleDownloadPoll();}
 
@@ -4171,16 +4281,16 @@ async function enableDownloaderForImmediateDownload() {
     setTimeout(pollDownloaderStatus,250);
   }
 }
-async function startMp3Download(url,isPlaylist=false,provider="",playlistTitle="",askDestination=true) { let playlist="Загрузки",destination_path=$("#downloadPath").value.trim()||S.settings.download_path||"";if(!isPlaylist&&askDestination){playlist=await chooseDownloadPlaylist();if(playlist===null)return;if(playlist==="__choose_folder__"){const choice=await api("/api/browse","POST",{initial:destination_path||""});if(!choice.path)return;destination_path=choice.path;playlist="Загрузки";}else if(playlist!=="Загрузки")destination_path="";}await enableDownloaderForImmediateDownload();const job=await api("/api/download/start","POST",{url,playlist,is_playlist:isPlaylist,destination_path,provider,playlist_title:playlistTitle});downloadJobs.set(job.id,job);renderDownloadJob(job);scheduleDownloadPoll(); }
+async function startMp3Download(url,isPlaylist=false,provider="",playlistTitle="",askDestination=true,includeClip=false) { let playlist="Загрузки",destination_path=$("#downloadPath").value.trim()||S.settings.download_path||"";if(!isPlaylist&&askDestination){playlist=await chooseDownloadPlaylist();if(playlist===null)return;if(playlist==="__choose_folder__"){const choice=await api("/api/browse","POST",{initial:destination_path||""});if(!choice.path)return;destination_path=choice.path;playlist="Загрузки";}else if(playlist!=="Загрузки")destination_path="";}await enableDownloaderForImmediateDownload();const job=await api("/api/download/start","POST",{url,playlist,is_playlist:isPlaylist,destination_path,provider,playlist_title:playlistTitle,include_clip:!!includeClip});downloadJobs.set(job.id,job);renderDownloadJob(job);scheduleDownloadPoll(); }
 
-function showRemoteResults(items, isPlaylist=false) { const box=$("#downloadResults"); if(!items||!items.length){box.innerHTML='<div class="note">Ничего не найдено.</div>';return;} box.innerHTML=items.map((item,index)=>'<div class="download-result"><img src="'+safeDownloadText(item.thumbnail)+'" alt=""><div class="meta"><div class="title">'+safeDownloadText(item.title)+'</div><div class="sub">'+safeDownloadText(item.artist)+(item.duration?' · '+fmtTime(item.duration):'')+'</div></div><button class="btn small primary" data-download-item="'+index+'">MP3</button></div>').join(""); box._items=items; box._isPlaylist=isPlaylist; }
+function showRemoteResults(items, isPlaylist=false) { const box=$("#downloadResults"); if(!items||!items.length){box.innerHTML='<div class="note">Ничего не найдено.</div>';return;} box.innerHTML=items.map((item,index)=>{const buttons=S.activeClipsEnabled&&!isPlaylist?`<div class="download-result-actions"><button class="btn small primary" data-download-item="${index}" data-include-clip="1" title="Скачать трек и докачать клип">Скачать+</button><button class="btn small" data-download-item="${index}" title="Скачать только трек">Скачать-</button></div>`:`<button class="btn small primary" data-download-item="${index}">MP3</button>`;const hint=S.activeClipsEnabled&&!isPlaylist?'<div class="download-result-hint">Скачать+ — докачать клип · Скачать- — только трек</div>':'';return `<div class="download-result-wrap"><div class="download-result"><img src="${safeDownloadText(item.thumbnail)}" alt=""><div class="meta"><div class="title">${safeDownloadText(item.title)}</div><div class="sub">${safeDownloadText(item.artist)}${item.duration?' · '+fmtTime(item.duration):''}</div></div>${buttons}</div>${hint}</div>`;}).join(""); box._items=items; box._isPlaylist=isPlaylist; }
 async function runDownloadSearch(provider) { const query=$("[data-download-query=\""+provider+"\"]").value.trim(); if(!query)return toast("Введи название трека."); const box=$("#downloadResults"); box.innerHTML='<div class="note">Ищу…</div>'; try{ const data=await api("/api/download/search","POST",{provider,query}); showRemoteResults(data.results); }catch(e){box.innerHTML='<div class="note">'+safeDownloadText(e.message)+'</div>';}}
 function bindSettings() {
   bindNumericSettings();
   $("#openSettings").onclick = () => openSettings();
   $$("[data-download-search]").forEach(button=>button.onclick=()=>runDownloadSearch(button.dataset.downloadSearch));
   $("#downloadInspect").onclick=async()=>{const url=$("#downloadUrl").value.trim();if(!url)return toast("Вставь ссылку.");$("#downloadResults").innerHTML='<div class="note">Проверяю ссылку…</div>';try{const data=await api("/api/download/inspect","POST",{url});if(data.is_playlist){showRemoteResults([{title:data.title,artist:(data.track_count||0)+" треков · скачать весь плейлист",url:data.url,source:data.provider}],true);toast("Найден плейлист: "+data.title);}else showRemoteResults([data.track]);}catch(e){$("#downloadResults").innerHTML='<div class="note">'+safeDownloadText(e.message)+'</div>';}};
-  $("#downloadResults").onclick=async e=>{const button=e.target.closest("[data-download-item]");if(!button)return;const item=$("#downloadResults")._items[Number(button.dataset.downloadItem)];try{const source=String(item.source||"").toLowerCase();await startMp3Download(item.url,$("#downloadResults")._isPlaylist,source.includes("youtube")?"youtube":source.includes("soundcloud")?"soundcloud":"",item.title||"");}catch(error){toast(error.message);}};
+  $("#downloadResults").onclick=async e=>{const button=e.target.closest("[data-download-item]");if(!button)return;const item=$("#downloadResults")._items[Number(button.dataset.downloadItem)];try{const source=String(item.source||"").toLowerCase();await startMp3Download(item.url,$("#downloadResults")._isPlaylist,source.includes("youtube")?"youtube":source.includes("soundcloud")?"soundcloud":"",item.title||"",true,button.dataset.includeClip==="1");}catch(error){toast(error.message);}};
    $("#downloadActive").onclick=async e=>{const button=e.target.closest("[data-download-cancel]");if(!button)return;button.disabled=true;try{const latest=await api("/api/download/cancel","POST",{id:button.dataset.downloadCancel});const job=downloadJobs.get(latest.id);if(job){Object.assign(job,latest);renderDownloadJob(job);}scheduleDownloadPoll();}catch(error){toast(error.message);}};
    renderDownloadHistory();
    $("#downloadHistoryToggle").onclick=()=>{const box=$("#downloadHistory"),open=box.classList.toggle("hidden");$("#downloadHistoryToggle").setAttribute("aria-expanded",String(!open));};
@@ -4204,18 +4314,11 @@ function bindSettings() {
   $("#pulseColorMode").onchange=e=>{setSetting({music_effects:{color_mode:e.target.value}});$("#pulseColorCustomRow").classList.toggle("hidden",e.target.value!=="custom");applyTheme();};
   $("#pulseColor").oninput=e=>{setSetting({music_effects:{color:e.target.value}});applyTheme();};
   $("#mp3DownloaderEnabled").onchange=e=>{setSetting({mp3_downloader_enabled:e.target.checked},{immediate:true});$("#mp3DownloaderControls").classList.toggle("hidden",!e.target.checked);if(!e.target.checked){$("#downloadResults").innerHTML="";toast("Загрузчик MP3 полностью выключен.");}setTimeout(pollDownloaderStatus,250);};
-  $("#performanceMode").onchange=async e=>{
-    const mode=e.target.value, previous=S.settings.performance_mode||"eco_offline";
-    const previousDownloader=S.settings.mp3_downloader_enabled;
-    if(mode===previous)return;
-    const modeText={eco_online:"ЭкоОнлайн: интернет-поиск и скачивание доступны, тяжёлые визуальные эффекты выключены.",online:"Онлайн: интернет-поиск, скачивание и все визуальные эффекты включены.",eco_offline:"ЭкоОффлайн: только локальная музыка, без интернет-поиска и тяжёлых эффектов.",offline:"Оффлайн: только локальная музыка, но с полноценными визуальными эффектами и слежением за библиотекой."};
-    const accepted=await cutePrompt({title:"Перезапустить плеер?",subtitle:(modeText[mode]||"")+" Изменение применится после перезапуска.",confirmText:"Перезапустить",confirmOnly:true});
-    if(!accepted){e.target.value=previous;return;}
-    const saved=await setSetting({performance_mode:mode,...(!["eco_online","online"].includes(mode)?{mp3_downloader_enabled:false}:{})},{immediate:true});
-    if(saved===false){e.target.value=previous;S.settings.performance_mode=previous;S.settings.mp3_downloader_enabled=previousDownloader;return;}
-    try{await api("/api/restart","POST",{});showRestartOverlay();}
-    catch(error){toast("Не удалось перезапустить плеер: "+error.message);}
-  };
+  $("#modeVisual").onchange=updateModesDraft;
+  $("#modeOffline").onchange=updateModesDraft;
+  $("#modeClips").onchange=updateModesDraft;
+  $("#modeRevert").onclick=resetModesDraft;
+  $("#modeApply").onclick=applyModesDraft;
   $("#pulseEffect").onchange = e => { setSetting({music_effects:{pulse:e.target.checked}}); if(e.target.checked&&anyPlaying()){ensureGraph();if(S.ctx&&S.ctx.state==="suspended")S.ctx.resume();} applyTheme(); };
   $("#pulseStyle").onchange = e => { setSetting({music_effects:{style:e.target.value}}); applyTheme(); };
   $("#pulseMode").onchange = e => setSetting({music_effects:{mode:e.target.value}});
@@ -4554,19 +4657,21 @@ function openNowPlaying() { if (S.current) { const panel=$("#npLyrics"); if(pane
 function closeNowPlaying() { moveNowPlayingSliders(false); $("#np").classList.add("hidden"); document.body.classList.remove("now-playing-open"); }
 
 function bindAudio() {
-  audio.addEventListener("play", () => { S.hasPlayed = true; updatePlayButton(); updateMediaSession(true); sendNowPlaying(); startViz(); updateThemeFx(); });
-  audio.addEventListener("pause", () => { updatePlayButton(); updateMediaSession(); sendNowPlaying(); saveLast(); updateThemeFx(); });
-  audio.addEventListener("seeked", () => { updateMediaSession(); sendNowPlaying(); });
+  audio.addEventListener("play", () => { S.hasPlayed = true; syncBackgroundClip(); updatePlayButton(); updateMediaSession(true); sendNowPlaying(); startViz(); updateThemeFx(); });
+  audio.addEventListener("pause", () => { syncBackgroundClip(); updatePlayButton(); updateMediaSession(); sendNowPlaying(); saveLast(); updateThemeFx(); });
+  audio.addEventListener("seeking", () => syncBackgroundClip(true));
+  audio.addEventListener("seeked", () => { syncBackgroundClip(true); updateMediaSession(); sendNowPlaying(); });
+  audio.addEventListener("ratechange", () => syncBackgroundClip());
   audio.addEventListener("playing", () => { S.errorStreak = 0; updateMediaSession(true); });
   let miniLyricsSentAt=0;
-  audio.addEventListener("timeupdate", () => { updateSeekUi(); countCurrentListenIfReady(); if(Date.now()-mediaSessionPositionAt>=1000)updateMediaSession(); if(S.settings?.mini_player?.lyrics_enabled!==false&&Date.now()-miniLyricsSentAt>2500){miniLyricsSentAt=Date.now();sendNowPlaying();} });
+  audio.addEventListener("timeupdate", () => { syncBackgroundClip(); updateSeekUi(); countCurrentListenIfReady(); if(Date.now()-mediaSessionPositionAt>=1000)updateMediaSession(); if(S.settings?.mini_player?.lyrics_enabled!==false&&Date.now()-miniLyricsSentAt>2500){miniLyricsSentAt=Date.now();sendNowPlaying();} });
   audio.addEventListener("loadedmetadata", () => {
     if (S.current && Number.isFinite(audio.duration)) {
       S.durCache[S.current.id] = audio.duration;
       const row = $(`#list .row[data-id="${S.current.id}"] .du`);
       if (row && !row.textContent) row.textContent = fmtTime(audio.duration);
     }
-    updateSeekUi(); updateMediaSession(); sendNowPlaying();
+    syncBackgroundClip(true); updateSeekUi(); updateMediaSession(); sendNowPlaying();
   });
   audio.addEventListener("durationchange", () => { updateSeekUi(); updateMediaSession(); });
   audio.addEventListener("ended", () => {
@@ -4634,6 +4739,9 @@ async function init() {
     if($("#radioProvider"))$("#radioProvider").value=S.settings.radio_provider||"all";
     playlistTrackOrder={...playlistTrackOrder,...(state.settings.playlist_track_order||{})};
     S.activePerformanceMode = state.active_performance_mode || state.settings.performance_mode || "eco_offline";
+    S.activeClipsEnabled = state.active_clips_enabled !== false;
+    S.automaticOfflineFallback = !!state.automatic_offline;
+    resetModesDraft();
     await restorePlaybackHistory();
     await restoreCustomPlaylists();
     await restoreRemoteFavorites();
@@ -4664,7 +4772,7 @@ async function init() {
   setTimeout(checkForGitHubUpdate,7000);
   setInterval(checkForGitHubUpdate,6*60*60*1000);
   setInterval(() => api("/api/ping").catch(() => {}), 15000);  // «я жив» — иначе плеер закроется сам
-  setInterval(() => { if (!$("#settings").classList.contains("hidden")) return; api("/api/state").then((s) => { S.discord = s.discord; }).catch(() => {}); }, 20000);
+  setInterval(() => { if (!$("#settings").classList.contains("hidden")) return; api("/api/state").then((s) => { S.discord = s.discord;S.activeClipsEnabled=s.active_clips_enabled!==false;S.automaticOfflineFallback=!!s.automatic_offline; }).catch(() => {}); }, 20000);
   window.addEventListener("pagehide", () => {
     try { navigator.sendBeacon(tk("/api/nowplaying"), JSON.stringify({ track: null })); } catch (e) { /* ничего */ }
     try { navigator.sendBeacon(tk("/api/custom-playlists"), new Blob([JSON.stringify({updated_at:customPlaylistsUpdatedAt,items:S.customPlaylists})], {type:"application/json"})); } catch (e) { /* сервер синхронизирует сохранение через основной запрос */ }

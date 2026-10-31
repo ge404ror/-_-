@@ -90,6 +90,7 @@ class FloatingMiniPlayer:
         self._opacity_window = None
         self._lyrics_window = None
         self._lyrics_label = None
+        self.lyrics_button = None
         self._lyrics_round_size = None
         self._lyrics_drag = None
         self._lyrics_last_text = ""
@@ -196,9 +197,9 @@ class FloatingMiniPlayer:
             self.body.pack_configure(fill="both", expand=True)
             self.cover.pack_configure(padx=(0, self._d(7)))
             self.cover.configure(font=("Segoe UI Symbol", self._d(15)), width=4, height=2)
-            self.title_label.configure(font=("Segoe UI", max(9, self._d(11)), "bold"))
+            self.title_label.configure(font=("Segoe UI", max(8, self._d(11)), "bold"))
             self.title_label.pack_configure(pady=(self._d(2), 0))
-            self.artist_label.configure(font=("Segoe UI", max(8, self._d(9))))
+            self.artist_label.configure(font=("Segoe UI", max(7, self._d(9))))
             self.artist_label.pack_configure(pady=0)
             self.selector_row.pack_forget()
             self.seek.pack_forget()
@@ -215,9 +216,9 @@ class FloatingMiniPlayer:
             self.body.pack_configure(fill="x", expand=False)
             self.cover.pack_configure(padx=(0, self._d(11)))
             self.cover.configure(font=("Segoe UI Symbol", self._d(27)), width=4, height=2)
-            self.title_label.configure(font=("Segoe UI", max(11, self._d(12)), "bold"))
+            self.title_label.configure(font=("Segoe UI", max(8, self._d(12)), "bold"))
             self.title_label.pack_configure(pady=0)
-            self.artist_label.configure(font=("Segoe UI", max(9, self._d(10))))
+            self.artist_label.configure(font=("Segoe UI", max(7, self._d(10))))
             self.artist_label.pack_configure(pady=(self._d(1), self._d(5)))
             self.selector_row.pack(fill="x", pady=(self._d(3), 0))
             self.seek.pack(fill="x", pady=(self._d(7), self._d(1)))
@@ -384,6 +385,7 @@ class FloatingMiniPlayer:
         self._make_button(button_group, "", "next", size=30)
         self.repeat_button = self._make_button(button_group, "", "repeat", size=28)
         self._make_button(button_group, "↗", "open", size=28)
+        self.lyrics_button = self._make_button(button_group, "T", "lyrics", size=28)
         self.opacity_button = self._make_button(button_group, "", "opacity", size=28)
         self.size_button = self._make_button(button_group, "", "size", size=28)
         self.expanded_shuffle_button = self.shuffle_button
@@ -606,6 +608,12 @@ class FloatingMiniPlayer:
                     draw.line([xy(6, 6), xy(13, 13)], fill=fg, width=stroke)
                     draw.line([xy(26, 19), xy(26, 26), xy(19, 26)], fill=fg, width=stroke, joint="curve")
                     draw.line([xy(26, 26), xy(19, 19)], fill=fg, width=stroke)
+                elif action == "lyrics":
+                    from PIL import ImageFont
+                    font_path = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", "segoeuib.ttf")
+                    try: font = ImageFont.truetype(font_path, max(1, round(17 * unit)))
+                    except OSError: font = ImageFont.load_default()
+                    draw.text((side / 2, side / 2), "T", fill=fg, font=font, anchor="mm")
                 resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS", 1)
                 image = image.resize((size, size), resampling)
                 photo = ImageTk.PhotoImage(image)
@@ -1354,8 +1362,6 @@ class FloatingMiniPlayer:
                         self.panel.destroy()
                 except Exception:
                     pass
-                self._track_id = None
-                self._cover_key = None
                 self._build_ui()
             else:
                 self._apply_mini_layout()
@@ -1382,7 +1388,7 @@ class FloatingMiniPlayer:
             pass
         self._place(mini)
         self._root.update_idletasks()
-        self._round_window(self._root, self._window_width(), self._root.winfo_height())
+        self._round_window(self._root, self._root.winfo_width(), self._root.winfo_height())
         self._update_lyrics_overlay(self.get_track() or {}, cfg)
 
     def _place(self, cfg=None):
@@ -1565,11 +1571,10 @@ class FloatingMiniPlayer:
                 self.panel.destroy()
         except Exception:
             pass
-        self._track_id = None
         self._build_ui()
         self._apply_theme(self.get_settings() or {})
         self._root.update_idletasks()
-        self._round_window(self._root, self._window_width(), self._window_height())
+        self._round_window(self._root, self._root.winfo_width(), self._root.winfo_height())
         self.save_position({"scale": value})
 
     def _draw_opacity(self):
@@ -1754,7 +1759,14 @@ class FloatingMiniPlayer:
         if not state:
             self.hide()
             return 1000
-        self._update_lyrics_overlay(state, self.get_settings() or {})
+        cfg = self.get_settings() or {}
+        mini = cfg.get("mini_player") if isinstance(cfg.get("mini_player"), dict) else cfg
+        self._update_lyrics_overlay(state, cfg)
+        if self.lyrics_button is not None:
+            active = bool(mini.get("lyrics_enabled", True))
+            if self.lyrics_button.get("active") != active:
+                self.lyrics_button["active"] = active
+                self._draw_button(self.lyrics_button)
         title = str(state.get("title") or "Без названия")
         artist = str(state.get("artist") or "Неизвестный исполнитель")
         if self.title_label.cget("text") != title[:64]:

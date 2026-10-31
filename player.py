@@ -36,13 +36,15 @@ from mini_player import FloatingMiniPlayer
 
 logger = logging.getLogger("player")
 
-VERSION = "1.26-last-frequency"
+VERSION = "1.27-last-frequency"
 MAX_LAYERS = 8  # сколько треков можно играть одновременно в режиме «мульти-треки»
 APP_ID = "last-frequency"
 DEFAULT_PORT = 8775
 DISCORD_CLIENT_ID = "1558464674985410580"
 _INSTANCE_MUTEX = None
 _ACTIVE_PERFORMANCE_MODE = "eco_offline"
+_ACTIVE_CLIPS_ENABLED = True
+_AUTO_OFFLINE_FALLBACK = False
 PERFORMANCE_MODES = ("eco_online", "online", "eco_offline", "offline")
 ECO_MODES = ("eco_online", "eco_offline")
 ONLINE_MODES = ("eco_online", "online")
@@ -404,6 +406,7 @@ DEFAULT_SETTINGS = {
     "visualizer_glow": 60,
     "track_scale": 130,
     "performance_mode": "eco_offline",
+    "clips_enabled": True,
     "mp3_downloader_enabled": False,
     "download_last_completed_at": 0,
     "music_effects": {"hearts": False, "pulse": True, "style": "default", "mode": "beat", "color_mode": "theme", "color": "#8b95ff"},
@@ -836,6 +839,7 @@ def sanitize_settings(data: dict, base: dict) -> dict:
     # Convert values used by older versions to the new independent online/economy model.
     raw_mode = {"economy": "eco_offline", "eco_dl": "eco_online", "standard": "online"}.get(raw_mode, raw_mode)
     out["performance_mode"] = _choice(raw_mode, PERFORMANCE_MODES, base.get("performance_mode", "eco_offline"))
+    out["clips_enabled"] = _bool(data.get("clips_enabled"), base.get("clips_enabled", True))
     out["mp3_downloader_enabled"] = _bool(data.get("mp3_downloader_enabled"), base.get("mp3_downloader_enabled", True))
     out["download_last_completed_at"] = _num(data.get("download_last_completed_at"), 0, 4102444800, base.get("download_last_completed_at", 0))
     effects = data.get("music_effects") if isinstance(data.get("music_effects"), dict) else {}
@@ -1021,6 +1025,19 @@ def resolve_sources(settings: dict) -> list:
 # ======================================================================================
 #  Поиск и загрузка MP3
 # ======================================================================================
+def _internet_available(timeout: float = 1.5) -> bool:
+    """Quick connectivity check used only when an online mode is requested at startup."""
+    request = urllib.request.Request(
+        "https://connectivitycheck.gstatic.com/generate_204",
+        headers={"User-Agent": f"LAST-FREQUENCY/{VERSION}"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return 200 <= int(getattr(response, "status", response.getcode()) or 0) < 300
+    except Exception:
+        return False
+
+
 def _require_online_search_enabled() -> None:
     if _ACTIVE_PERFORMANCE_MODE not in ONLINE_MODES:
         raise RuntimeError("Онлайн-поиск доступен в режимах «ЭкоОнлайн» и «Онлайн». Переключи режим и перезапусти плеер.")
@@ -1533,7 +1550,7 @@ def lookup_lyrics(title: str, artist: str = "", album: str = "", duration=0) -> 
         for attempt in range(3):
             try:
                 last_status, last_body = _platform_request(url, allowed_domains,
-                    headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.26"},
+                    headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.27"},
                     timeout=12, max_bytes=1_000_000)
             except (OSError, TimeoutError, urllib.error.URLError) as error:
                 logger.info("Временная ошибка сервиса текста, попытка %s/3: %s", attempt + 1, type(error).__name__)
@@ -2502,6 +2519,8 @@ DOWNLOAD_JOBS = {}
 DOWNLOAD_JOBS_LOCK = threading.Lock()
 CLIP_JOBS = {}
 CLIP_JOBS_LOCK = threading.Lock()
+ONLINE_CLIP_CACHE = {}
+ONLINE_CLIP_CACHE_LOCK = threading.Lock()
 DOWNLOADS_LOCK = threading.Lock()
 DOWNLOADS_ENABLED = True
 LAST_DOWNLOAD_COMPLETED = 0.0
@@ -2652,11 +2671,12 @@ def _download_job_snapshot(job_id: str) -> dict:
 
 
 def _start_download_job(url: str, playlist: str, is_playlist: bool, destination_path: str = "",
-                        provider: str = "", playlist_title: str = "") -> dict:
+                        provider: str = "", playlist_title: str = "", include_clip: bool = False) -> dict:
     require_downloads_enabled()
     job_id = secrets.token_urlsafe(12)
     job = {"id": job_id, "status": "preparing", "percent": 0, "downloaded": 0, "total": 0,
            "speed": 0, "eta": None, "filename": "Подготовка загрузки…", "error": "",
+           "include_clip": bool(include_clip),
            "cancel_event": threading.Event()}
     with DOWNLOAD_JOBS_LOCK:
         DOWNLOAD_JOBS[job_id] = job
@@ -2699,6 +2719,29 @@ def _start_download_job(url: str, playlist: str, is_playlist: bool, destination_
             result = download_remote(url, playlist, is_playlist, destination_path,
                                     provider=provider, playlist_title=playlist_title,
                                     cancel_event=job["cancel_event"], progress_callback=progress)
+            if include_clip and _ACTIVE_CLIPS_ENABLED:
+                clip_failures = 0
+                tracks = result.get("tracks") if isinstance(result, dict) else []
+                for track in tracks or []:
+                    if job["cancel_event"].is_set():
+                        break
+                    title = str(track.get("title") or "Трек")
+                    with DOWNLOAD_JOBS_LOCK:
+                        job["status"] = "processing"
+                        job["filename"] = ("Докачиваю клип · " + title)[:180]
+                        job["percent"] = 100
+                    clip_job = _start_clip_download(str(track.get("id") or ""), title,
+                                                    str(track.get("artist") or ""),
+                                                    cancel_event=job["cancel_event"])
+                    while clip_job.get("id") and clip_job.get("status") not in ("finished", "failed", "cancelled"):
+                        if job["cancel_event"].wait(0.5):
+                            break
+                        clip_job = _clip_job_snapshot(clip_job["id"])
+                    if clip_job.get("status") != "finished":
+                        clip_failures += 1
+                if job["cancel_event"].is_set():
+                    raise RuntimeError("Загрузка отменена")
+                result["clips_failed"] = clip_failures
             completed_successfully = True
             with DOWNLOAD_JOBS_LOCK:
                 job["status"] = "finished"
@@ -2743,6 +2786,79 @@ def _clip_path(track_id: str) -> Path:
     return CLIPS_DIR / f"{_clip_key(track_id)}.mp4"
 
 
+def resolve_background_clip(track_id: str, title: str, artist: str) -> dict:
+    """Use a saved clip first, otherwise return a short-lived online video stream."""
+    track_id = str(track_id or "")[:500]
+    title = str(title or "").strip()[:240]
+    artist = str(artist or "").strip()[:240]
+    if not track_id or not title or not _ACTIVE_CLIPS_ENABLED:
+        return {"found": False, "url": ""}
+    local_clip = _clip_path(track_id)
+    if local_clip.is_file() and local_clip.stat().st_size:
+        return {"found": True, "local": True, "url": f"/clip/{quote(track_id, safe='')}"}
+    if _ACTIVE_PERFORMANCE_MODE not in ONLINE_MODES:
+        return {"found": False, "url": "", "offline": True}
+
+    cache_key = (track_id, title.casefold(), artist.casefold())
+    now = time.monotonic()
+    with ONLINE_CLIP_CACHE_LOCK:
+        cached = ONLINE_CLIP_CACHE.get(cache_key)
+        if cached and cached[0] > now:
+            return dict(cached[1])
+        if cached:
+            ONLINE_CLIP_CACHE.pop(cache_key, None)
+
+    query = " ".join(part for part in (artist, title, "official music video") if part)
+    result = {"found": False, "url": ""}
+    ttl = 120.0
+    try:
+        ytdlp = _yt_dlp_module(allow_online_search=True)
+        search_options = {
+            "quiet": True, "no_warnings": True, "skip_download": True,
+            "extract_flat": "in_playlist", "noplaylist": True,
+            "socket_timeout": 12, "retries": 1, "playlistend": 3,
+        }
+        with ytdlp.YoutubeDL(search_options) as ydl:
+            search = ydl.extract_info("ytsearch3:" + query, download=False) or {}
+        entries = search.get("entries") if isinstance(search, dict) else None
+        entries = [item for item in (entries or []) if isinstance(item, dict)][:3]
+        video_format = (
+            "bestvideo[ext=mp4][height<=480][vcodec^=avc1]/"
+            "bestvideo[ext=mp4][height<=480]/best[ext=mp4][height<=480]/"
+            "bestvideo[height<=480]/best[height<=480]"
+        )
+        for entry in entries:
+            video_url = str(entry.get("webpage_url") or entry.get("url") or "")
+            video_id = str(entry.get("id") or "")
+            if video_id and not video_url.startswith(("https://", "http://")):
+                video_url = "https://www.youtube.com/watch?v=" + quote(video_id, safe="")
+            if not video_url:
+                continue
+            options = {
+                "quiet": True, "no_warnings": True, "skip_download": True,
+                "noplaylist": True, "format": video_format,
+                "socket_timeout": 12, "retries": 1,
+            }
+            with ytdlp.YoutubeDL(options) as ydl:
+                info = ydl.extract_info(video_url, download=False) or {}
+            stream = str(info.get("url") or "")
+            if not stream or not _allowed_online_stream_url(stream):
+                continue
+            proxy_url = _register_online_stream(stream, info.get("http_headers") or {})
+            if proxy_url:
+                result = {"found": True, "local": False, "url": proxy_url}
+                ttl = 12 * 60
+                break
+    except Exception as error:
+        logger.info("Не удалось подобрать онлайн-клип для %s: %s", _clip_key(track_id)[:12], type(error).__name__)
+
+    with ONLINE_CLIP_CACHE_LOCK:
+        ONLINE_CLIP_CACHE[cache_key] = (time.monotonic() + ttl, dict(result))
+        while len(ONLINE_CLIP_CACHE) > 300:
+            ONLINE_CLIP_CACHE.pop(next(iter(ONLINE_CLIP_CACHE)))
+    return result
+
+
 def _clip_job_snapshot(job_id: str) -> dict:
     with CLIP_JOBS_LOCK:
         job = CLIP_JOBS.get(job_id)
@@ -2751,8 +2867,10 @@ def _clip_job_snapshot(job_id: str) -> dict:
         return {key: value for key, value in job.items() if key != "track_id"}
 
 
-def _start_clip_download(track_id: str, title: str, artist: str) -> dict:
+def _start_clip_download(track_id: str, title: str, artist: str, cancel_event=None) -> dict:
     _require_online_search_enabled()
+    if not _ACTIVE_CLIPS_ENABLED:
+        raise RuntimeError("Загрузка клипов выключена в настройках «Режимы».")
     track_id = str(track_id or "")[:500]
     title = str(title or "").strip()[:240]
     artist = str(artist or "").strip()[:240]
@@ -2767,13 +2885,15 @@ def _start_clip_download(track_id: str, title: str, artist: str) -> dict:
     with CLIP_JOBS_LOCK:
         CLIP_JOBS[job_id] = job
         for stale_id in list(CLIP_JOBS)[:-40]:
-            if CLIP_JOBS[stale_id]["status"] in ("finished", "failed"):
+            if CLIP_JOBS[stale_id]["status"] in ("finished", "failed", "cancelled"):
                 CLIP_JOBS.pop(stale_id, None)
 
     def worker():
         target = _clip_path(track_id)
         try:
             _require_online_search_enabled()
+            if cancel_event and cancel_event.is_set():
+                raise RuntimeError("Загрузка отменена")
             CLIPS_DIR.mkdir(parents=True, exist_ok=True)
             ytdlp = _yt_dlp_module(allow_online_search=True)
             logger_for_ytdlp = _DownloadLogger()
@@ -2790,6 +2910,8 @@ def _start_clip_download(track_id: str, title: str, artist: str) -> dict:
             options["ffmpeg_location"] = str(Path(_find_ffmpeg_binary()).parent)
 
             def progress(payload):
+                if cancel_event and cancel_event.is_set():
+                    raise ytdlp.utils.DownloadError("Загрузка отменена")
                 status = payload.get("status")
                 if status in ("downloading", "finished"):
                     with CLIP_JOBS_LOCK:
@@ -2815,10 +2937,13 @@ def _start_clip_download(track_id: str, title: str, artist: str) -> dict:
                 if job_id in CLIP_JOBS:
                     CLIP_JOBS[job_id].update(status="finished", percent=100)
         except Exception as error:
+            cancelled = bool(cancel_event and cancel_event.is_set())
             with CLIP_JOBS_LOCK:
                 if job_id in CLIP_JOBS:
-                    CLIP_JOBS[job_id].update(status="failed", error=str(error)[:300])
-            logger.info("Не удалось загрузить клип для трека %s: %s", _clip_key(track_id)[:12], error)
+                    CLIP_JOBS[job_id].update(status="cancelled" if cancelled else "failed",
+                                             error="Загрузка отменена" if cancelled else str(error)[:300])
+            if not cancelled:
+                logger.info("Не удалось загрузить клип для трека %s: %s", _clip_key(track_id)[:12], error)
 
     threading.Thread(target=worker, name=f"clip-download-{job_id[:6]}", daemon=True).start()
     return _clip_job_snapshot(job_id)
@@ -3052,8 +3177,16 @@ def download_remote(url: str, playlist: str, is_playlist: bool = False, destinat
         STATE.library.scan_async()
     elif not is_playlist and created:
         STATE.library.add_downloaded_files(created, destination, info.get("provider", ""))
+    tracks = []
+    if not is_playlist:
+        for path in created:
+            tag_title, tag_artist, _album, _duration, _embedded = read_tags(path)
+            _number, filename_artist, filename_title = parse_filename(path.stem)
+            tracks.append({"id": track_id_for(str(path)),
+                           "title": tag_title or filename_title or path.stem,
+                           "artist": tag_artist or filename_artist or ""})
     return {"ok": True, "playlist": clean, "folder": str(destination), "downloaded": downloaded_count,
-            "skipped_drm": ydl_logger.drm_errors}
+            "skipped_drm": ydl_logger.drm_errors, "tracks": tracks}
 
 
 # ======================================================================================
@@ -4407,13 +4540,13 @@ class Handler(BaseHTTPRequestHandler):
             headers["Range"] = range_value.strip()
         if self.headers.get("If-Range"):
             headers["If-Range"] = self.headers.get("If-Range")
-        headers.setdefault("Accept", "application/vnd.apple.mpegurl,audio/*,application/octet-stream;q=0.9,*/*;q=0.8")
+        headers.setdefault("Accept", "application/vnd.apple.mpegurl,video/*,audio/*,application/octet-stream;q=0.9,*/*;q=0.8")
         req = urllib.request.Request(target_url, headers=headers)
         try:
             upstream = urllib.request.urlopen(req, timeout=25)
         except Exception as error:
             logger.info("Online stream proxy failed: %s", type(error).__name__)
-            return self._fail(502, "Площадка не отдала аудиопоток. Попробуй другой результат или открой оригинал.")
+            return self._fail(502, "Площадка не отдала медиапоток. Попробуй другой результат или открой оригинал.")
         try:
             final_url = getattr(upstream, "url", "") or target_url
             if not _allowed_online_stream_url(final_url):
@@ -4574,7 +4707,9 @@ class Handler(BaseHTTPRequestHandler):
                 settings = STATE.settings.get()
                 return self._json({"settings": settings, "sources": resolve_sources(settings),
                                    "backgrounds": list_backgrounds(), "discord": STATE.presence.status(),
-                                   "active_performance_mode": _ACTIVE_PERFORMANCE_MODE})
+                                   "active_performance_mode": _ACTIVE_PERFORMANCE_MODE,
+                                   "active_clips_enabled": _ACTIVE_CLIPS_ENABLED,
+                                   "automatic_offline": _AUTO_OFFLINE_FALLBACK})
             if path == "/api/download/idle":
                 return self._json(download_idle_status())
             if path == "/api/download/status":
@@ -4607,6 +4742,8 @@ class Handler(BaseHTTPRequestHandler):
             "version": VERSION,
             "settings": settings,
             "active_performance_mode": _ACTIVE_PERFORMANCE_MODE,
+            "active_clips_enabled": _ACTIVE_CLIPS_ENABLED,
+            "automatic_offline": _AUTO_OFFLINE_FALLBACK,
             "sources": resolve_sources(settings),
             "backgrounds": list_backgrounds(),
             "discord": STATE.presence.status(),
@@ -4870,6 +5007,14 @@ class Handler(BaseHTTPRequestHandler):
                     else:
                         logger.warning("Не удалось открыть онлайн-трек: %s", error)
                 return self._fail(400, str(error)[:300])
+        if path == "/api/clips/resolve":
+            try:
+                return self._json(resolve_background_clip(str(data.get("id") or ""),
+                                                          str(data.get("title") or ""),
+                                                          str(data.get("artist") or "")))
+            except Exception as error:
+                logger.info("Не удалось получить клип: %s", type(error).__name__)
+                return self._json({"found": False, "url": ""})
         if path == "/api/clips/download":
             try:
                 return self._json(_start_clip_download(str(data.get("id") or ""),
@@ -4892,10 +5037,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self._fail(400, str(error)[:300])
         if path == "/api/download/start":
             try:
+                include_clip = bool(data.get("include_clip"))
+                if include_clip and not _ACTIVE_CLIPS_ENABLED:
+                    return self._fail(403, "Докачка клипа выключена в настройках «Режимы».")
                 return self._json(_start_download_job(
                     str(data.get("url") or ""), str(data.get("playlist") or "Загрузки"),
                     bool(data.get("is_playlist")), str(data.get("destination_path") or "")[:1000],
                     str(data.get("provider") or ""), str(data.get("playlist_title") or "")[:200],
+                    include_clip=include_clip and not bool(data.get("is_playlist")),
                 ))
             except Exception as error:
                 logger.warning("Ошибка загрузки: %s", error)
@@ -4973,10 +5122,8 @@ class Handler(BaseHTTPRequestHandler):
             if _MINI_PLAYER is not None:
                 _MINI_PLAYER.configure(settings)
             mode = settings.get("performance_mode", "eco_offline")
-            if mode not in DOWNLOAD_MODES and settings.get("mp3_downloader_enabled", False):
-                settings = STATE.settings.update({"mp3_downloader_enabled": False})
-            was_enabled = before.get("mp3_downloader_enabled", False) and before.get("performance_mode") in DOWNLOAD_MODES
-            can_download = mode == _ACTIVE_PERFORMANCE_MODE and mode in DOWNLOAD_MODES and settings.get("mp3_downloader_enabled", False)
+            was_enabled = before.get("mp3_downloader_enabled", False) and _ACTIVE_PERFORMANCE_MODE in DOWNLOAD_MODES
+            can_download = _ACTIVE_PERFORMANCE_MODE in DOWNLOAD_MODES and settings.get("mp3_downloader_enabled", False)
             set_downloads_enabled(can_download)
             manage_download_idle_watchdog(can_download)
             if can_download and not was_enabled:
@@ -4992,11 +5139,15 @@ class Handler(BaseHTTPRequestHandler):
             # Сохраняем выбор, но переключаем их только после перезапуска.
             if mode_changed:
                 logger.info("Режим работы изменён на %s; применение после перезапуска", mode)
+            if settings.get("clips_enabled") != before.get("clips_enabled"):
+                logger.info("Настройка клипов изменена; применение после перезапуска")
             if resolve_sources(settings) != resolve_sources(before):
                 STATE.library.scan_async()
             return self._json({"settings": settings, "sources": resolve_sources(settings),
                                "backgrounds": list_backgrounds(), "discord": STATE.presence.status(),
-                               "active_performance_mode": _ACTIVE_PERFORMANCE_MODE})
+                               "active_performance_mode": _ACTIVE_PERFORMANCE_MODE,
+                               "active_clips_enabled": _ACTIVE_CLIPS_ENABLED,
+                               "automatic_offline": _AUTO_OFFLINE_FALLBACK})
         if path == "/api/window-theme":
             theme = str(data.get("theme") or "midnight")
             accent = str(data.get("accent") or "")
@@ -6149,7 +6300,7 @@ def _restart_settle():
 
 
 def main():
-    global STATE, _ACTIVE_PERFORMANCE_MODE
+    global STATE, _ACTIVE_PERFORMANCE_MODE, _ACTIVE_CLIPS_ENABLED, _AUTO_OFFLINE_FALLBACK
     if "--check" in sys.argv:
         run_check()
         return
@@ -6181,9 +6332,14 @@ def main():
 
     STATE = AppState()
     settings = STATE.settings.get()
-    _ACTIVE_PERFORMANCE_MODE = settings.get("performance_mode", "eco_offline")
-    if settings.get("performance_mode", "eco_offline") not in DOWNLOAD_MODES and settings.get("mp3_downloader_enabled", False):
-        settings = STATE.settings.update({"mp3_downloader_enabled": False})
+    configured_mode = settings.get("performance_mode", "eco_offline")
+    _AUTO_OFFLINE_FALLBACK = configured_mode in ONLINE_MODES and not _internet_available()
+    if _AUTO_OFFLINE_FALLBACK:
+        _ACTIVE_PERFORMANCE_MODE = "eco_offline" if configured_mode == "eco_online" else "offline"
+        logger.info("Интернет недоступен при запуске: временно включён оффлайн-режим %s", _ACTIVE_PERFORMANCE_MODE)
+    else:
+        _ACTIVE_PERFORMANCE_MODE = configured_mode
+    _ACTIVE_CLIPS_ENABLED = bool(settings.get("clips_enabled", True))
     port = settings["port"]
     try:
         server = QuietThreadingHTTPServer(("127.0.0.1", port), Handler)
@@ -6212,14 +6368,14 @@ def main():
     global LAST_DOWNLOAD_COMPLETED
     with DOWNLOADS_LOCK:
         LAST_DOWNLOAD_COMPLETED = float(settings.get("download_last_completed_at", 0) or 0)
-    can_download = settings.get("performance_mode", "eco_offline") in DOWNLOAD_MODES and settings.get("mp3_downloader_enabled", False)
+    can_download = _ACTIVE_PERFORMANCE_MODE in DOWNLOAD_MODES and settings.get("mp3_downloader_enabled", False)
     set_downloads_enabled(can_download)
     manage_download_idle_watchdog(can_download)
     logger.info("Загрузчик MP3: %s", "доступен (yt-dlp загрузится при первом использовании)" if can_download else "выключен, yt-dlp не загружается")
     threading.Thread(target=start_tray, name="system-tray", daemon=True).start()
-    if settings.get("performance_mode", "eco_offline") in ("online", "offline"):
+    if _ACTIVE_PERFORMANCE_MODE in ("online", "offline"):
         start_global_hotkeys()
-    if settings.get("performance_mode", "eco_offline") in ECO_MODES:
+    if _ACTIVE_PERFORMANCE_MODE in ECO_MODES:
         STATE.library.load_cached_snapshot()
     else:
         STATE.library.scan_async(force=True)
