@@ -390,6 +390,7 @@ DEFAULT_SETTINGS = {
     "row_scale": 100,
     "font": "bold",
     "search_provider": "all",
+    "radio_provider": "all",
     "playlist_track_order": {},
     "density": "comfortable",
     "visualizer": "bars",
@@ -807,6 +808,7 @@ def sanitize_settings(data: dict, base: dict) -> dict:
     out["radius"] = int(_num(data.get("radius"), 0, 64, base["radius"]))
     out["font"] = _choice(data.get("font"), ("system", "serif", "mono", "rounded", "quicksand", "pacifico", "bold", "roboto", "opensans", "montserrat", "lato", "inter"), base["font"])
     out["search_provider"] = _choice(data.get("search_provider"), ("all", "youtube_music", "youtube", "soundcloud"), base.get("search_provider", "all"))
+    out["radio_provider"] = _choice(data.get("radio_provider"), ("all", "youtube_music", "youtube", "soundcloud"), base.get("radio_provider", "all"))
     raw_track_orders = data.get("playlist_track_order", base.get("playlist_track_order", {}))
     clean_track_orders = {}
     if isinstance(raw_track_orders, dict):
@@ -1525,65 +1527,115 @@ def lookup_lyrics(title: str, artist: str = "", album: str = "", duration=0) -> 
         cached = _LYRICS_CACHE.get(key)
         if cached and cached[0] > now:
             return dict(cached[1])
-    domains = ("lrclib.net",)
-    params = {"track_name": lyrics_title}
-    if artist:
-        params["artist_name"] = artist
-    if album:
-        params["album_name"] = album
-    if seconds:
-        params["duration"] = seconds
-    status, raw = (404, b"")
-    if artist:
-        status, raw = _platform_request("https://lrclib.net/api/get?" + urlencode(params), domains,
-                                        headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.23"},
-                                        timeout=12, max_bytes=1_000_000)
-    candidate = None
-    if status == 200:
+    def lyrics_request(url, allowed_domains):
+        last_status, last_body = 503, b""
+        for attempt in range(3):
+            try:
+                last_status, last_body = _platform_request(url, allowed_domains,
+                    headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.24"},
+                    timeout=12, max_bytes=1_000_000)
+            except (OSError, TimeoutError, urllib.error.URLError) as error:
+                logger.info("Временная ошибка сервиса текста, попытка %s/3: %s", attempt + 1, type(error).__name__)
+                last_status, last_body = 503, b""
+            if last_status != 429 and last_status < 500:
+                break
+            if attempt < 2:
+                time.sleep(0.35 * (attempt + 1))
+        return last_status, last_body
+    def lookup_lrclib():
+        source_domains = ("lrclib.net",)
+        params = {"track_name": lyrics_title}
+        if artist:
+            params["artist_name"] = artist
+        if album:
+            params["album_name"] = album
+        if seconds:
+            params["duration"] = seconds
+        status, raw = (404, b"")
+        if artist:
+            status, raw = lyrics_request("https://lrclib.net/api/get?" + urlencode(params), source_domains)
+        candidate = None
+        if status == 200:
+            try:
+                value = json.loads(raw.decode("utf-8"))
+                candidate = value if isinstance(value, dict) else None
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                candidate = None
+        if not candidate or not (candidate.get("plainLyrics") or candidate.get("syncedLyrics")):
+            query = urlencode({"q": f"{artist} {lyrics_title}".strip()})
+            search_status, search_raw = lyrics_request("https://lrclib.net/api/search?" + query, source_domains)
+            if search_status == 200:
+                try:
+                    results = json.loads(search_raw.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    results = []
+                if isinstance(results, list):
+                    target_title, target_artist = _music_match_text(lyrics_title), _music_match_text(artist)
+                    scored = []
+                    for item in results[:30]:
+                        if not isinstance(item, dict):
+                            continue
+                        title_score = difflib.SequenceMatcher(None, target_title, _music_match_text(item.get("trackName"))).ratio()
+                        artist_score = (difflib.SequenceMatcher(None, target_artist, _music_match_text(item.get("artistName"))).ratio()
+                                        if target_artist else .78)
+                        duration_diff = abs(float(item.get("duration") or 0) - seconds) if seconds else 0
+                        score = title_score * (.72 if target_artist else .9) + artist_score * (.28 if target_artist else .1) - (min(duration_diff, 120) / 120 * .12)
+                        if item.get("plainLyrics") or item.get("syncedLyrics"):
+                            scored.append((score, item))
+                    if scored and max(scored, key=lambda pair: pair[0])[0] >= (.72 if target_artist else .78):
+                        candidate = max(scored, key=lambda pair: pair[0])[1]
+            if search_status == 429 or search_status >= 500:
+                return None, "unavailable"
+        if candidate and (candidate.get("plainLyrics") or candidate.get("syncedLyrics")):
+            return candidate, "found"
+        return None, "not_found"
+
+    def lookup_lyrics_ovh():
+        if not artist:
+            return None, "not_found"
+        lyrics_url = "https://api.lyrics.ovh/v1/{}/{}".format(
+            quote(artist, safe=""), quote(lyrics_title, safe=""))
+        status, raw = lyrics_request(lyrics_url, ("lyrics.ovh",))
+        if status == 429 or status >= 500:
+            return None, "unavailable"
+        if status != 200:
+            return None, "not_found"
         try:
             value = json.loads(raw.decode("utf-8"))
-            candidate = value if isinstance(value, dict) else None
+            lyrics = str(value.get("lyrics") or "").strip() if isinstance(value, dict) else ""
         except (UnicodeDecodeError, json.JSONDecodeError):
-            candidate = None
-    if candidate is None:
-        query = urlencode({"q": f"{artist} {lyrics_title}".strip()})
-        search_status, search_raw = _platform_request("https://lrclib.net/api/search?" + query, domains,
-            headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.23"}, timeout=12, max_bytes=1_000_000)
-        if search_status == 200:
-            try:
-                results = json.loads(search_raw.decode("utf-8"))
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                results = []
-            if isinstance(results, list):
-                target_title, target_artist = _music_match_text(lyrics_title), _music_match_text(artist)
-                scored = []
-                for item in results[:30]:
-                    if not isinstance(item, dict):
-                        continue
-                    title_score = difflib.SequenceMatcher(None, target_title, _music_match_text(item.get("trackName"))).ratio()
-                    artist_score = (difflib.SequenceMatcher(None, target_artist, _music_match_text(item.get("artistName"))).ratio()
-                                    if target_artist else .78)
-                    duration_diff = abs(float(item.get("duration") or 0) - seconds) if seconds else 0
-                    score = title_score * (.72 if target_artist else .9) + artist_score * (.28 if target_artist else .1) - (min(duration_diff, 120) / 120 * .12)
-                    scored.append((score, item))
-                if scored and max(scored, key=lambda pair: pair[0])[0] >= (.72 if target_artist else .78):
-                    candidate = max(scored, key=lambda pair: pair[0])[1]
+            lyrics = ""
+        if not lyrics:
+            return None, "not_found"
+        return {"trackName": title, "artistName": artist, "albumName": album,
+                "plainLyrics": lyrics, "syncedLyrics": "", "instrumental": False}, "found"
+
+    # Query both providers at once, then choose LRCLIB whenever it has lyrics.
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="lyrics") as executor:
+        lrclib_future = executor.submit(lookup_lrclib)
+        lyrics_ovh_future = executor.submit(lookup_lyrics_ovh)
+        lrclib_candidate, lrclib_status = lrclib_future.result()
+        lyrics_ovh_candidate, lyrics_ovh_status = lyrics_ovh_future.result()
+    sources = {"lrclib": lrclib_status, "lyrics_ovh": lyrics_ovh_status}
+    candidate = lrclib_candidate or lyrics_ovh_candidate
+    unavailable = "unavailable" in sources.values()
     if not candidate:
-        result = {"found": False, "message": "Текст для этого трека не найден."}
+        result = {"found": False, "message": "Сервис текста временно недоступен." if unavailable else "Текст для этого трека не найден.", "sources": sources}
     else:
         result = {"found": True, "title": str(candidate.get("trackName") or title)[:180],
                   "artist": str(candidate.get("artistName") or artist)[:180],
                   "album": str(candidate.get("albumName") or album)[:180],
                   "plain": str(candidate.get("plainLyrics") or "")[:30000],
                   "synced": str(candidate.get("syncedLyrics") or "")[:30000],
-                  "instrumental": bool(candidate.get("instrumental"))}
+                  "instrumental": bool(candidate.get("instrumental")), "sources": sources}
         if not result["plain"] and result["synced"]:
             result["plain"] = re.sub(r"(?m)^\s*\[[^]]+\]\s*", "", result["synced"])
     with _LYRICS_CACHE_LOCK:
         if len(_LYRICS_CACHE) >= 500:
             oldest = min(_LYRICS_CACHE, key=lambda item: _LYRICS_CACHE[item][0])
             _LYRICS_CACHE.pop(oldest, None)
-        _LYRICS_CACHE[key] = (now + (6 * 3600 if result.get("found") else 10 * 60), result)
+        if not unavailable:
+            _LYRICS_CACHE[key] = (now + (6 * 3600 if result.get("found") else 10 * 60), result)
     return dict(result)
 
 
