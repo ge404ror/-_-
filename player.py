@@ -36,7 +36,7 @@ from mini_player import FloatingMiniPlayer
 
 logger = logging.getLogger("player")
 
-VERSION = "1.28-last-frequency"
+VERSION = "1.29-last-frequency"
 MAX_LAYERS = 8  # сколько треков можно играть одновременно в режиме «мульти-треки»
 APP_ID = "last-frequency"
 DEFAULT_PORT = 8775
@@ -562,7 +562,12 @@ def _start_update_download() -> dict:
             opened = False
             if os.name == "nt":
                 try:
-                    os.startfile(str(destination))
+                    if asset_name.lower() == "lastfrequency-setup.exe":
+                        subprocess.Popen([str(destination), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"],
+                                         cwd=str(destination.parent), close_fds=True)
+                        shutdown_server()
+                    else:
+                        os.startfile(str(destination))
                     opened = True
                 except OSError:
                     logger.warning("Не удалось открыть скачанный установщик: %s", destination)
@@ -1700,7 +1705,7 @@ def lookup_lyrics(title: str, artist: str = "", album: str = "", duration=0) -> 
         for attempt in range(3):
             try:
                 last_status, last_body = _platform_request(url, allowed_domains,
-                    headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.28"},
+                    headers={"Accept": "application/json", "User-Agent": f"LAST-FREQUENCY/{VERSION}"},
                     timeout=12, max_bytes=1_000_000)
             except (OSError, TimeoutError, urllib.error.URLError) as error:
                 logger.info("Временная ошибка сервиса текста, попытка %s/3: %s", attempt + 1, type(error).__name__)

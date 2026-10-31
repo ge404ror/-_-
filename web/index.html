@@ -4850,7 +4850,7 @@ async function checkForGitHubUpdate() {
         }
         if(job.status==="failed")throw new Error(job.error||"Не удалось скачать обновление.");
         try { localStorage.setItem("last-frequency.dismissed-update",update.latest); } catch (_) {}
-        toast(job.opened?"Установщик скачан и открыт.":"Установщик скачан в папку Downloads.");
+        toast(job.opened?"Обновление устанавливается. Плеер перезапустится автоматически.":"Установщик скачан в папку Downloads.");
       } catch(error) { toast("Не удалось скачать обновление: "+String(error.message||error)); }
     }
     else try { localStorage.setItem("last-frequency.dismissed-update",update.latest); } catch (_) {}

@@ -1,5 +1,5 @@
 ﻿#define AppName "LAST FREQUENCY"
-#define AppVersion "1.28"
+#define AppVersion "1.29"
 #define AppExe "LastFrequency.exe"
 
 [Setup]
@@ -44,7 +44,7 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: startmenu
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Запустить {#AppName}"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "Запустить {#AppName}"; Flags: postinstall nowait
 
 [UninstallRun]
 ; Stop the player before removing its installed profile and any files it created beside the EXE.
