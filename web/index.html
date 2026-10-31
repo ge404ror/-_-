@@ -1127,7 +1127,7 @@ async function restoreCustomPlaylists() {
   }
 }
 function customPlaylistId() { return "custom:" + Math.random().toString(36).slice(2, 11); }
-function cutePrompt({title, subtitle, placeholder, confirmText = "Готово ♡", cancelText = "Отмена"}) {
+function cutePrompt({title, subtitle, placeholder, confirmText = "Готово ♡", cancelText = "Отмена", lockDismiss = false}) {
   return new Promise(resolve => {
     const backdrop = $("#cuteDialogBackdrop"), input = $("#cuteDialogInput"), select = $("#cuteDialogSelect");
     const useSelect = Array.isArray(arguments[0].options), informational = !!arguments[0].informational, confirmOnly = !!arguments[0].confirmOnly;
@@ -1148,14 +1148,15 @@ function cutePrompt({title, subtitle, placeholder, confirmText = "Готово �
       backdrop.removeEventListener("click", outside);
       input.removeEventListener("keydown", keydown);
       select.removeEventListener("keydown", keydown);
+      document.removeEventListener("keydown", keydown);
       resolve(value);
     };
     const yes = () => finish(useSelect ? select.value : (informational || confirmOnly) ? true : input.value), no = () => finish(null);
-    const outside = e => { if (e.target === backdrop) no(); };
-    const keydown = e => { if (e.key === "Enter") yes(); if (e.key === "Escape") no(); };
+    const outside = e => { if (!lockDismiss && e.target === backdrop) no(); };
+    const keydown = e => { if (e.key === "Enter") yes(); if (!lockDismiss && e.key === "Escape") no(); };
     $("#cuteDialogConfirm").addEventListener("click", yes);
     $("#cuteDialogCancel").addEventListener("click", no);
-    backdrop.addEventListener("click", outside); input.addEventListener("keydown", keydown); select.addEventListener("keydown", keydown);
+    backdrop.addEventListener("click", outside); input.addEventListener("keydown", keydown); select.addEventListener("keydown", keydown); document.addEventListener("keydown", keydown);
     setTimeout(() => (useSelect ? select : informational || confirmOnly ? $("#cuteDialogConfirm") : input).focus(), 30);
   });
 }
@@ -4834,7 +4835,7 @@ async function checkForGitHubUpdate() {
     const update=await api("/api/update-check");
     if(!update.available||!update.latest)return;
     try { if(localStorage.getItem("last-frequency.dismissed-update")===update.latest)return; } catch (_) {}
-    const accepted=await cutePrompt({title:"Вышло новое обновление",subtitle:"Доступна версия "+update.latest+". Скачать обновление LAST FREQUENCY?",confirmText:"Скачать",cancelText:"Позже",confirmOnly:true});
+    const accepted=await cutePrompt({title:"Вышло новое обновление",subtitle:"Доступна версия "+update.latest+". Скачать обновление LAST FREQUENCY?",confirmText:"Скачать",cancelText:"Загрузить позже",confirmOnly:true,lockDismiss:true});
     if(accepted) {
       try {
         let job=await api("/api/update/download","POST",{});
