@@ -196,9 +196,9 @@ class FloatingMiniPlayer:
             self.body.pack_configure(fill="both", expand=True)
             self.cover.pack_configure(padx=(0, self._d(7)))
             self.cover.configure(font=("Segoe UI Symbol", self._d(15)), width=4, height=2)
-            self.title_label.configure(font=("Segoe UI", self._d(9), "bold"))
+            self.title_label.configure(font=("Segoe UI", max(9, self._d(11)), "bold"))
             self.title_label.pack_configure(pady=(self._d(2), 0))
-            self.artist_label.configure(font=("Segoe UI", self._d(7)))
+            self.artist_label.configure(font=("Segoe UI", max(8, self._d(9))))
             self.artist_label.pack_configure(pady=0)
             self.selector_row.pack_forget()
             self.seek.pack_forget()
@@ -215,9 +215,9 @@ class FloatingMiniPlayer:
             self.body.pack_configure(fill="x", expand=False)
             self.cover.pack_configure(padx=(0, self._d(11)))
             self.cover.configure(font=("Segoe UI Symbol", self._d(27)), width=4, height=2)
-            self.title_label.configure(font=("Segoe UI", self._d(11), "bold"))
+            self.title_label.configure(font=("Segoe UI", max(11, self._d(12)), "bold"))
             self.title_label.pack_configure(pady=0)
-            self.artist_label.configure(font=("Segoe UI", self._d(9)))
+            self.artist_label.configure(font=("Segoe UI", max(9, self._d(10))))
             self.artist_label.pack_configure(pady=(self._d(1), self._d(5)))
             self.selector_row.pack(fill="x", pady=(self._d(3), 0))
             self.seek.pack(fill="x", pady=(self._d(7), self._d(1)))
@@ -1914,7 +1914,8 @@ class FloatingMiniPlayer:
             image = ImageOps.fit(source, (cover_size, cover_size), method=resampling)
             image_mask = Image.new("L", image.size, 0)
             ImageDraw.Draw(image_mask).rounded_rectangle(
-                (0, 0, image.width - 1, image.height - 1), radius=self._d(11), fill=255)
+                (0, 0, image.width - 1, image.height - 1),
+                radius=min(image.width // 6, self._d(4 if self._mini_style == "compact" else 10)), fill=255)
             image.putalpha(image_mask)
             return ImageTk.PhotoImage(image)
         except Exception:

@@ -36,7 +36,7 @@ from mini_player import FloatingMiniPlayer
 
 logger = logging.getLogger("player")
 
-VERSION = "1.24-last-frequency"
+VERSION = "1.26-last-frequency"
 MAX_LAYERS = 8  # сколько треков можно играть одновременно в режиме «мульти-треки»
 APP_ID = "last-frequency"
 DEFAULT_PORT = 8775
@@ -116,6 +116,7 @@ def _data_dir() -> Path:
 PLAYER_DIR = _data_dir()
 WEB_DIR = RESOURCE_DIR / "web"
 BG_DIR = PLAYER_DIR / "backgrounds"
+CLIPS_DIR = PLAYER_DIR / "clips"
 SETTINGS_FILE = PLAYER_DIR / "player_settings.json"
 CACHE_FILE = PLAYER_DIR / "library_cache.json"
 COVER_URL_FILE = PLAYER_DIR / "discord_covers.json"   # кэш: обложка -> временная ссылка
@@ -132,7 +133,7 @@ CONTENT_TYPES = {
     ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".flac": "audio/flac", ".ogg": "audio/ogg",
     ".opus": "audio/ogg", ".wav": "audio/wav", ".aac": "audio/aac",
     ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
-    ".gif": "image/gif",
+    ".gif": "image/gif", ".mp4": "video/mp4",
 }
 MAX_BACKGROUND_BYTES = 25 * 1024 * 1024
 
@@ -1532,7 +1533,7 @@ def lookup_lyrics(title: str, artist: str = "", album: str = "", duration=0) -> 
         for attempt in range(3):
             try:
                 last_status, last_body = _platform_request(url, allowed_domains,
-                    headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.24"},
+                    headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.26"},
                     timeout=12, max_bytes=1_000_000)
             except (OSError, TimeoutError, urllib.error.URLError) as error:
                 logger.info("Временная ошибка сервиса текста, попытка %s/3: %s", attempt + 1, type(error).__name__)
@@ -2499,6 +2500,8 @@ def _log_online_failure_once(url: str, ttl: float = 120.0) -> bool:
 
 DOWNLOAD_JOBS = {}
 DOWNLOAD_JOBS_LOCK = threading.Lock()
+CLIP_JOBS = {}
+CLIP_JOBS_LOCK = threading.Lock()
 DOWNLOADS_LOCK = threading.Lock()
 DOWNLOADS_ENABLED = True
 LAST_DOWNLOAD_COMPLETED = 0.0
@@ -2731,6 +2734,95 @@ def _cancel_download_job(job_id: str) -> dict:
             job["status"] = "cancelling"
     return _download_job_snapshot(job_id)
 
+
+def _clip_key(track_id: str) -> str:
+    return hashlib.sha256(str(track_id or "").encode("utf-8", errors="replace")).hexdigest()
+
+
+def _clip_path(track_id: str) -> Path:
+    return CLIPS_DIR / f"{_clip_key(track_id)}.mp4"
+
+
+def _clip_job_snapshot(job_id: str) -> dict:
+    with CLIP_JOBS_LOCK:
+        job = CLIP_JOBS.get(job_id)
+        if not job:
+            raise ValueError("Загрузка клипа не найдена")
+        return {key: value for key, value in job.items() if key != "track_id"}
+
+
+def _start_clip_download(track_id: str, title: str, artist: str) -> dict:
+    _require_online_search_enabled()
+    track_id = str(track_id or "")[:500]
+    title = str(title or "").strip()[:240]
+    artist = str(artist or "").strip()[:240]
+    if not track_id or not title:
+        raise ValueError("У трека нет названия для поиска клипа")
+    existing = _clip_path(track_id)
+    if existing.is_file() and existing.stat().st_size:
+        return {"id": "", "status": "finished", "title": title, "already_downloaded": True}
+
+    job_id = secrets.token_urlsafe(12)
+    job = {"id": job_id, "track_id": track_id, "title": title, "status": "preparing", "error": ""}
+    with CLIP_JOBS_LOCK:
+        CLIP_JOBS[job_id] = job
+        for stale_id in list(CLIP_JOBS)[:-40]:
+            if CLIP_JOBS[stale_id]["status"] in ("finished", "failed"):
+                CLIP_JOBS.pop(stale_id, None)
+
+    def worker():
+        target = _clip_path(track_id)
+        try:
+            _require_online_search_enabled()
+            CLIPS_DIR.mkdir(parents=True, exist_ok=True)
+            ytdlp = _yt_dlp_module(allow_online_search=True)
+            logger_for_ytdlp = _DownloadLogger()
+            query = " ".join(part for part in (artist, title, "official music video") if part)
+            options = {
+                "format": "bestvideo[height<=720][vcodec^=avc1]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
+                "merge_output_format": "mp4",
+                "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
+                "outtmpl": str(CLIPS_DIR / f"{_clip_key(track_id)}.%(ext)s"),
+                "quiet": True, "no_warnings": True, "logger": logger_for_ytdlp,
+                "noplaylist": True, "socket_timeout": 30, "retries": 2,
+                "fragment_retries": 2, "concurrent_fragment_downloads": 2,
+            }
+            options["ffmpeg_location"] = str(Path(_find_ffmpeg_binary()).parent)
+
+            def progress(payload):
+                status = payload.get("status")
+                if status in ("downloading", "finished"):
+                    with CLIP_JOBS_LOCK:
+                        if job_id in CLIP_JOBS:
+                            CLIP_JOBS[job_id]["status"] = "downloading" if status == "downloading" else "processing"
+                            total = payload.get("total_bytes") or payload.get("total_bytes_estimate") or 0
+                            downloaded = payload.get("downloaded_bytes") or 0
+                            CLIP_JOBS[job_id]["percent"] = min(100, round(downloaded * 100 / total)) if total else 0
+
+            options["progress_hooks"] = [progress]
+            with ytdlp.YoutubeDL(options) as ydl:
+                result_code = ydl.download(["ytsearch1:" + query])
+            if not target.is_file() or not target.stat().st_size:
+                # yt-dlp may add a source ID to an output name for some extractors;
+                # normalize the first completed MP4 to our opaque track key.
+                candidates = sorted(CLIPS_DIR.glob(f"{_clip_key(track_id)}*.mp4"), key=lambda item: item.stat().st_mtime, reverse=True)
+                if candidates:
+                    candidates[0].replace(target)
+            if result_code or not target.is_file() or not target.stat().st_size:
+                detail = logger_for_ytdlp.errors[-1] if logger_for_ytdlp.errors else "Видео не найдено или источник его не отдал."
+                raise RuntimeError(detail[:300])
+            with CLIP_JOBS_LOCK:
+                if job_id in CLIP_JOBS:
+                    CLIP_JOBS[job_id].update(status="finished", percent=100)
+        except Exception as error:
+            with CLIP_JOBS_LOCK:
+                if job_id in CLIP_JOBS:
+                    CLIP_JOBS[job_id].update(status="failed", error=str(error)[:300])
+            logger.info("Не удалось загрузить клип для трека %s: %s", _clip_key(track_id)[:12], error)
+
+    threading.Thread(target=worker, name=f"clip-download-{job_id[:6]}", daemon=True).start()
+    return _clip_job_snapshot(job_id)
+
 def inspect_remote_url(url: str) -> dict:
     require_downloads_enabled()
     url = str(url or "").strip()[:2000]
@@ -2885,7 +2977,7 @@ def download_remote(url: str, playlist: str, is_playlist: bool = False, destinat
                "quiet": True, "no_warnings": True, "logger": ydl_logger,
                "noplaylist": not is_playlist, "ignoreerrors": True,
                "concurrent_fragment_downloads": 1, "buffersize": 4096,
-               "socket_timeout": 30, "writethumbnail": True, "keepthumbnail": True, "convertthumbnails": "jpg", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"},
+               "socket_timeout": 30, "writethumbnail": True, "keepthumbnail": True, "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "320"},
                {"key": "FFmpegMetadata", "add_metadata": True}, {"key": "EmbedThumbnail"}],
                "postprocessor_args": {"EmbedThumbnail": ["-id3v2_version", "3"]}}
     if progress_callback:
@@ -2918,7 +3010,25 @@ def download_remote(url: str, playlist: str, is_playlist: bool = False, destinat
     if cancel_event and cancel_event.is_set():
         raise RuntimeError("Загрузка отменена")
     try:
+        from yt_dlp.postprocessor.common import PostProcessor
+
+        class HighestResolutionThumbnailPP(PostProcessor):
+            def run(self, info):
+                thumbnails = info.get("thumbnails")
+                if isinstance(thumbnails, list):
+                    def resolution(item):
+                        if not isinstance(item, dict):
+                            return 0, 0, 0
+                        try:
+                            width, height = int(item.get("width") or 0), int(item.get("height") or 0)
+                        except (TypeError, ValueError, OverflowError):
+                            width = height = 0
+                        return width * height, width, height
+                    info["thumbnails"] = sorted(thumbnails, key=resolution)
+                return [], info
+
         with ytdlp.YoutubeDL(options) as ydl:
+            ydl.add_post_processor(HighestResolutionThumbnailPP(ydl), when="pre_process")
             code = ydl.download([url])
     except Exception as error:
         if ydl_logger.drm_errors or "drm protected" in str(error).lower():
@@ -3952,12 +4062,12 @@ class DiscordPresence:
         artist = str(np.get("artist") or "Неизвестный исполнитель")[:120]
         source = str(np.get("source") or "").strip()[:36]
         playing = bool(np.get("playing"))
-        # Discord displays details above state. Keep the track and artist in
-        # details, and put the source in state so it is always the third row.
-        details = (f"{title} — {artist}" if artist else title)[:120]
-        state_text = f"Источник: {source}" if source else ""
+        # Rich Presence exposes two custom text fields: details and state.
+        # Keep the title on its own row, then show artist and source together.
+        details = title[:120]
+        state_text = " · ".join(value for value in (artist, source) if value)[:120]
         if not playing:
-            state_text = "⏸ " + state_text
+            state_text = ("⏸ " + state_text)[:120]
         activity = {"details": details + "\u200b" if len(details) < 2 else details,
                     "state": state_text + "\u200b" if len(state_text) < 2 else state_text}
         if playing and self._show_elapsed:
@@ -4472,10 +4582,17 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(_download_job_snapshot(str((query.get("id") or [""])[0])))
                 except ValueError as error:
                     return self._fail(404, str(error))
+            if path == "/api/clips/status":
+                try:
+                    return self._json(_clip_job_snapshot(str((query.get("id") or [""])[0])))
+                except ValueError as error:
+                    return self._fail(404, str(error))
             if path == "/api/library":
                 return self._json(STATE.library.snapshot())
             if path.startswith("/audio/"):
                 return self._serve_audio(path[len("/audio/"):])
+            if path.startswith("/clip/"):
+                return self._serve_clip(path[len("/clip/"):])
             if path.startswith("/cover/"):
                 return self._serve_cover(path[len("/cover/"):])
             if path.startswith("/bg/"):
@@ -4528,6 +4645,49 @@ class Handler(BaseHTTPRequestHandler):
         length = end - start + 1
         self.send_response(status)
         self.send_header("Content-Type", content_type)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(length))
+        if status == 206:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Cache-Control", "private, max-age=3600")
+        self.end_headers()
+        if self.command == "HEAD":
+            return
+        with path.open("rb") as handle:
+            handle.seek(start)
+            remaining = length
+            while remaining > 0:
+                chunk = handle.read(min(65536, remaining))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
+
+    def _serve_clip(self, track_id: str):
+        path = _clip_path(track_id)
+        if not path.is_file():
+            return self._fail(404, "clip not found")
+        size = path.stat().st_size
+        start, end, status = 0, size - 1, 200
+        range_header = self.headers.get("Range")
+        if range_header:
+            match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header.strip())
+            if match and (match.group(1) or match.group(2)):
+                if match.group(1):
+                    start = int(match.group(1))
+                    end = min(int(match.group(2)), size - 1) if match.group(2) else size - 1
+                else:
+                    start = max(0, size - int(match.group(2)))
+                if start >= size or start > end:
+                    self.send_response(416)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                status = 206
+        length = end - start + 1
+        self.send_response(status)
+        self.send_header("Content-Type", "video/mp4")
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(length))
         if status == 206:
@@ -4709,6 +4869,13 @@ class Handler(BaseHTTPRequestHandler):
                         logger.info("SoundCloud не разрешил поток защищённого трека")
                     else:
                         logger.warning("Не удалось открыть онлайн-трек: %s", error)
+                return self._fail(400, str(error)[:300])
+        if path == "/api/clips/download":
+            try:
+                return self._json(_start_clip_download(str(data.get("id") or ""),
+                                                       str(data.get("title") or ""),
+                                                       str(data.get("artist") or "")))
+            except Exception as error:
                 return self._fail(400, str(error)[:300])
         if path in ("/api/download/search", "/api/download/inspect", "/api/download/start") and not downloads_enabled():
             return self._fail(403, download_block_reason())
@@ -5618,9 +5785,25 @@ def _apply_native_window_corners(hwnd=None, radius=8):
         return False
 
 
+def _set_windows_app_user_model_id():
+    """Give the player and its WebView2 child processes one Windows app identity."""
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes
+        setter = ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID
+        setter.argtypes = (ctypes.c_wchar_p,)
+        setter.restype = ctypes.c_long
+        return setter("LASTFREQUENCY.Player") == 0
+    except Exception:
+        logger.debug("Не удалось назначить Windows AppUserModelID", exc_info=True)
+        return False
+
+
 def run_native_window(url: str):
     """Start the player without the system titlebar; the page provides themed controls."""
     global _NATIVE_WINDOW, _NATIVE_HWND, _NATIVE_IS_MAXIMIZED
+    _set_windows_app_user_model_id()
     import webview
 
     window = webview.create_window(
