@@ -36,7 +36,7 @@ from mini_player import FloatingMiniPlayer
 
 logger = logging.getLogger("player")
 
-VERSION = "1.27-last-frequency"
+VERSION = "1.28-last-frequency"
 MAX_LAYERS = 8  # сколько треков можно играть одновременно в режиме «мульти-треки»
 APP_ID = "last-frequency"
 DEFAULT_PORT = 8775
@@ -69,6 +69,8 @@ GITHUB_RELEASES_URL = "https://api.github.com/repos/mivorababy/-_-/releases/late
 GITHUB_REPO_URL = "https://github.com/mivorababy/-_-"
 _UPDATE_CACHE = {"checked_at": 0.0, "payload": None}
 _UPDATE_CACHE_LOCK = threading.Lock()
+_UPDATE_DOWNLOAD_JOBS = {}
+_UPDATE_DOWNLOAD_JOBS_LOCK = threading.Lock()
 
 
 class _OnlineStreamDrmError(RuntimeError):
@@ -407,6 +409,8 @@ DEFAULT_SETTINGS = {
     "track_scale": 130,
     "performance_mode": "eco_offline",
     "clips_enabled": True,
+    "clips_online_enabled": False,
+    "clip_video_quality": 1080,
     "mp3_downloader_enabled": False,
     "download_last_completed_at": 0,
     "music_effects": {"hearts": False, "pulse": True, "style": "default", "mode": "beat", "color_mode": "theme", "color": "#8b95ff"},
@@ -489,6 +493,92 @@ def github_update_status(force: bool = False) -> dict:
             logger.info("Проверка обновлений GitHub не удалась: %s", type(error).__name__)
         _UPDATE_CACHE.update({"checked_at": now, "payload": payload})
         return dict(payload)
+
+
+def _update_download_snapshot(job_id: str) -> dict:
+    with _UPDATE_DOWNLOAD_JOBS_LOCK:
+        job = _UPDATE_DOWNLOAD_JOBS.get(job_id)
+        if not job:
+            raise ValueError("Загрузка обновления не найдена")
+        return {key: value for key, value in job.items() if key not in ("path", "url")}
+
+
+def _start_update_download() -> dict:
+    job_id = secrets.token_urlsafe(12)
+    job = {"id": job_id, "status": "preparing", "percent": 0, "downloaded": 0,
+           "total": 0, "filename": "Обновление LAST FREQUENCY", "error": "", "opened": False}
+    with _UPDATE_DOWNLOAD_JOBS_LOCK:
+        _UPDATE_DOWNLOAD_JOBS[job_id] = job
+        for stale_id in list(_UPDATE_DOWNLOAD_JOBS)[:-12]:
+            if _UPDATE_DOWNLOAD_JOBS[stale_id]["status"] in ("finished", "failed"):
+                _UPDATE_DOWNLOAD_JOBS.pop(stale_id, None)
+
+    def worker():
+        temporary = None
+        try:
+            update = github_update_status(force=True)
+            if not update.get("available"):
+                raise RuntimeError("Нового обновления больше нет.")
+            url = str(update.get("download_url") or "")
+            if not url.startswith("https://github.com/"):
+                raise RuntimeError("Ссылка на установщик недоступна.")
+            parsed = urlparse(url)
+            asset_name = Path(unquote(parsed.path)).name
+            if asset_name.lower() not in ("lastfrequency-setup.exe", "lastfrequency.exe"):
+                raise RuntimeError("В релизе не найден поддерживаемый установщик LAST FREQUENCY.")
+            version = re.sub(r"[^A-Za-z0-9._-]", "", str(update.get("latest") or ""))[:40]
+            filename = f"LastFrequency-Setup-{version}.exe" if "setup" in asset_name.lower() else f"LastFrequency-{version}.exe"
+            destination_dir = Path.home() / "Downloads"
+            destination_dir.mkdir(parents=True, exist_ok=True)
+            destination = destination_dir / filename
+            temporary = destination.with_name(destination.name + f".{job_id}.part")
+            request = urllib.request.Request(url, headers={
+                "User-Agent": f"LastFrequency/{VERSION}",
+                "Accept": "application/octet-stream",
+            })
+            with urllib.request.urlopen(request, timeout=30) as response, temporary.open("wb") as output:
+                total = int(response.headers.get("Content-Length") or 0)
+                if total > 512 * 1024 * 1024:
+                    raise RuntimeError("Размер установщика превышает допустимый лимит.")
+                with _UPDATE_DOWNLOAD_JOBS_LOCK:
+                    job.update(status="downloading", total=total, filename=filename)
+                downloaded = 0
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    downloaded += len(chunk)
+                    if downloaded > 512 * 1024 * 1024:
+                        raise RuntimeError("Размер установщика превышает допустимый лимит.")
+                    output.write(chunk)
+                    with _UPDATE_DOWNLOAD_JOBS_LOCK:
+                        job["downloaded"] = downloaded
+                        job["percent"] = min(99, round(downloaded * 100 / total)) if total else 0
+                output.flush()
+                os.fsync(output.fileno())
+            if downloaded < 1024 * 1024:
+                raise RuntimeError("Скачанный установщик слишком мал и выглядит неполным.")
+            temporary.replace(destination)
+            opened = False
+            if os.name == "nt":
+                try:
+                    os.startfile(str(destination))
+                    opened = True
+                except OSError:
+                    logger.warning("Не удалось открыть скачанный установщик: %s", destination)
+            with _UPDATE_DOWNLOAD_JOBS_LOCK:
+                job.update(status="finished", percent=100, downloaded=downloaded,
+                           total=total or downloaded, path=str(destination), opened=opened)
+        except Exception as error:
+            if temporary is not None:
+                try: temporary.unlink(missing_ok=True)
+                except OSError: pass
+            with _UPDATE_DOWNLOAD_JOBS_LOCK:
+                job.update(status="failed", error=str(error)[:300])
+            logger.warning("Не удалось скачать обновление LAST FREQUENCY: %s", error)
+
+    threading.Thread(target=worker, name=f"update-download-{job_id[:6]}", daemon=True).start()
+    return _update_download_snapshot(job_id)
 
 
 def _bool(value, default):
@@ -840,6 +930,8 @@ def sanitize_settings(data: dict, base: dict) -> dict:
     raw_mode = {"economy": "eco_offline", "eco_dl": "eco_online", "standard": "online"}.get(raw_mode, raw_mode)
     out["performance_mode"] = _choice(raw_mode, PERFORMANCE_MODES, base.get("performance_mode", "eco_offline"))
     out["clips_enabled"] = _bool(data.get("clips_enabled"), base.get("clips_enabled", True))
+    out["clips_online_enabled"] = _bool(data.get("clips_online_enabled"), base.get("clips_online_enabled", False))
+    out["clip_video_quality"] = int(_choice(str(data.get("clip_video_quality", base.get("clip_video_quality", 1080))), ("360", "480", "720", "1080"), str(base.get("clip_video_quality", 1080))))
     out["mp3_downloader_enabled"] = _bool(data.get("mp3_downloader_enabled"), base.get("mp3_downloader_enabled", True))
     out["download_last_completed_at"] = _num(data.get("download_last_completed_at"), 0, 4102444800, base.get("download_last_completed_at", 0))
     effects = data.get("music_effects") if isinstance(data.get("music_effects"), dict) else {}
@@ -1040,7 +1132,7 @@ def _internet_available(timeout: float = 1.5) -> bool:
 
 def _require_online_search_enabled() -> None:
     if _ACTIVE_PERFORMANCE_MODE not in ONLINE_MODES:
-        raise RuntimeError("Онлайн-поиск доступен в режимах «ЭкоОнлайн» и «Онлайн». Переключи режим и перезапусти плеер.")
+        raise RuntimeError("Онлайн-поиск доступен в режимах «Обычный режим» и «Больше визуала». Переключи режим и перезапусти плеер.")
 
 
 def _yt_dlp_module(allow_online_search: bool = False):
@@ -1260,6 +1352,64 @@ def _allowed_online_stream_url(url: str) -> bool:
         )
     except Exception:
         return False
+
+
+def _probe_online_video_stream(url: str, headers: dict | None = None) -> bool:
+    if not _allowed_online_stream_url(url):
+        return False
+    request_headers = {str(key): str(value) for key, value in (headers or {}).items()
+                       if str(key).lower() in {"user-agent", "accept", "accept-language", "referer"}
+                       and "\r" not in str(value) and "\n" not in str(value)}
+    request_headers["Range"] = "bytes=0-0"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=request_headers), timeout=12) as response:
+            final_url = str(getattr(response, "url", "") or url)
+            status = int(getattr(response, "status", 200) or 200)
+            return _allowed_online_stream_url(final_url) and status in (200, 206) and bool(response.read(1))
+    except urllib.error.HTTPError as error:
+        logger.info("Online video source probe failed: HTTP %s", error.code)
+        return False
+    except Exception as error:
+        logger.info("Online video source probe failed: %s", type(error).__name__)
+        return False
+
+
+def _find_accessible_youtube_video(query: str, max_height: int = 480) -> tuple[str, str, str, dict]:
+    """Skip YouTube search hits whose signed video URLs already reject HTTP range requests."""
+    ytdlp = _yt_dlp_module(allow_online_search=True)
+    search_options = {
+        "quiet": True, "no_warnings": True, "skip_download": True,
+        "extract_flat": "in_playlist", "noplaylist": True,
+        "socket_timeout": 12, "retries": 1, "playlistend": 3,
+    }
+    with ytdlp.YoutubeDL(search_options) as ydl:
+        search = ydl.extract_info("ytsearch3:" + query, download=False) or {}
+    entries = [item for item in (search.get("entries") or []) if isinstance(item, dict)][:3]
+    video_format = (
+        f"bestvideo[ext=mp4][height<={max_height}][vcodec^=avc1]/"
+        f"bestvideo[ext=mp4][height<={max_height}]/best[ext=mp4][height<={max_height}]/"
+        f"bestvideo[height<={max_height}]/best[height<={max_height}]"
+    )
+    for entry in entries:
+        video_url = str(entry.get("webpage_url") or entry.get("url") or "")
+        video_id = str(entry.get("id") or "")
+        if video_id and not video_url.startswith(("https://", "http://")):
+            video_url = "https://www.youtube.com/watch?v=" + quote(video_id, safe="")
+        if not video_url:
+            continue
+        try:
+            options = {"quiet": True, "no_warnings": True, "skip_download": True,
+                       "noplaylist": True, "format": video_format,
+                       "socket_timeout": 12, "retries": 1}
+            with ytdlp.YoutubeDL(options) as ydl:
+                info = ydl.extract_info(video_url, download=False) or {}
+            stream = str(info.get("url") or "")
+            headers = info.get("http_headers") or {}
+            if stream and _probe_online_video_stream(stream, headers):
+                return video_url, str(info.get("format_id") or ""), stream, headers
+        except Exception as error:
+            logger.info("Не удалось проверить видео-кандидат %s: %s", video_id[:16], type(error).__name__)
+    return "", "", "", {}
 
 
 def _register_online_stream(url: str, headers: dict | None = None, *, is_hls: bool = False) -> str:
@@ -1550,7 +1700,7 @@ def lookup_lyrics(title: str, artist: str = "", album: str = "", duration=0) -> 
         for attempt in range(3):
             try:
                 last_status, last_body = _platform_request(url, allowed_domains,
-                    headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.27"},
+                    headers={"Accept": "application/json", "User-Agent": "LAST-FREQUENCY/1.28"},
                     timeout=12, max_bytes=1_000_000)
             except (OSError, TimeoutError, urllib.error.URLError) as error:
                 logger.info("Временная ошибка сервиса текста, попытка %s/3: %s", attempt + 1, type(error).__name__)
@@ -2549,7 +2699,7 @@ def set_downloads_enabled(enabled: bool) -> None:
 def download_block_reason() -> str:
     try:
         if _ACTIVE_PERFORMANCE_MODE not in DOWNLOAD_MODES:
-            return "Онлайн-поиск и загрузка недоступны в офлайн-режиме. Выбери «ЭкоОнлайн» или «Онлайн», чтобы включить интернет-источники."
+            return "Онлайн-поиск и загрузка недоступны в оффлайн-режиме. Выбери «Обычный режим» или «Больше визуала», чтобы включить интернет-источники."
     except (NameError, AttributeError):
         pass
     return "Загрузчик MP3 полностью отключён в настройках"
@@ -2796,6 +2946,8 @@ def resolve_background_clip(track_id: str, title: str, artist: str) -> dict:
     local_clip = _clip_path(track_id)
     if local_clip.is_file() and local_clip.stat().st_size:
         return {"found": True, "local": True, "url": f"/clip/{quote(track_id, safe='')}"}
+    if not STATE.settings.get().get("clips_online_enabled", False):
+        return {"found": False, "url": "", "online_disabled": True}
     if _ACTIVE_PERFORMANCE_MODE not in ONLINE_MODES:
         return {"found": False, "url": "", "offline": True}
 
@@ -2812,43 +2964,13 @@ def resolve_background_clip(track_id: str, title: str, artist: str) -> dict:
     result = {"found": False, "url": ""}
     ttl = 120.0
     try:
-        ytdlp = _yt_dlp_module(allow_online_search=True)
-        search_options = {
-            "quiet": True, "no_warnings": True, "skip_download": True,
-            "extract_flat": "in_playlist", "noplaylist": True,
-            "socket_timeout": 12, "retries": 1, "playlistend": 3,
-        }
-        with ytdlp.YoutubeDL(search_options) as ydl:
-            search = ydl.extract_info("ytsearch3:" + query, download=False) or {}
-        entries = search.get("entries") if isinstance(search, dict) else None
-        entries = [item for item in (entries or []) if isinstance(item, dict)][:3]
-        video_format = (
-            "bestvideo[ext=mp4][height<=480][vcodec^=avc1]/"
-            "bestvideo[ext=mp4][height<=480]/best[ext=mp4][height<=480]/"
-            "bestvideo[height<=480]/best[height<=480]"
-        )
-        for entry in entries:
-            video_url = str(entry.get("webpage_url") or entry.get("url") or "")
-            video_id = str(entry.get("id") or "")
-            if video_id and not video_url.startswith(("https://", "http://")):
-                video_url = "https://www.youtube.com/watch?v=" + quote(video_id, safe="")
-            if not video_url:
-                continue
-            options = {
-                "quiet": True, "no_warnings": True, "skip_download": True,
-                "noplaylist": True, "format": video_format,
-                "socket_timeout": 12, "retries": 1,
-            }
-            with ytdlp.YoutubeDL(options) as ydl:
-                info = ydl.extract_info(video_url, download=False) or {}
-            stream = str(info.get("url") or "")
-            if not stream or not _allowed_online_stream_url(stream):
-                continue
-            proxy_url = _register_online_stream(stream, info.get("http_headers") or {})
+        quality = int(STATE.settings.get().get("clip_video_quality", 1080))
+        video_url, format_id, stream, headers = _find_accessible_youtube_video(query, max_height=quality)
+        if video_url and format_id:
+            proxy_url = _register_online_stream(stream, headers)
             if proxy_url:
                 result = {"found": True, "local": False, "url": proxy_url}
                 ttl = 12 * 60
-                break
     except Exception as error:
         logger.info("Не удалось подобрать онлайн-клип для %s: %s", _clip_key(track_id)[:12], type(error).__name__)
 
@@ -2898,8 +3020,12 @@ def _start_clip_download(track_id: str, title: str, artist: str, cancel_event=No
             ytdlp = _yt_dlp_module(allow_online_search=True)
             logger_for_ytdlp = _DownloadLogger()
             query = " ".join(part for part in (artist, title, "official music video") if part)
+            quality = int(STATE.settings.get().get("clip_video_quality", 1080))
+            video_url, format_id, _stream_url, _stream_headers = _find_accessible_youtube_video(query, max_height=quality)
+            if not video_url or not format_id:
+                raise RuntimeError("Не удалось найти доступный видеопоток для клипа.")
             options = {
-                "format": "bestvideo[height<=720][vcodec^=avc1]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
+                "format": format_id,
                 "merge_output_format": "mp4",
                 "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
                 "outtmpl": str(CLIPS_DIR / f"{_clip_key(track_id)}.%(ext)s"),
@@ -2923,7 +3049,7 @@ def _start_clip_download(track_id: str, title: str, artist: str, cancel_event=No
 
             options["progress_hooks"] = [progress]
             with ytdlp.YoutubeDL(options) as ydl:
-                result_code = ydl.download(["ytsearch1:" + query])
+                result_code = ydl.download([video_url])
             if not target.is_file() or not target.stat().st_size:
                 # yt-dlp may add a source ID to an output name for some extractors;
                 # normalize the first completed MP4 to our opaque track key.
@@ -3170,8 +3296,19 @@ def download_remote(url: str, playlist: str, is_playlist: bool = False, destinat
         logger.warning("%s: пропущено DRM-защищённых треков: %s", drm_source, ydl_logger.drm_errors)
     if custom_destination is not None and created:
         current = STATE.settings.get()
-        if not any(source.get("path") and os.path.normcase(os.path.abspath(source["path"])) == os.path.normcase(str(custom_destination))
-                   for source in current["sources"]):
+        destination_abs = os.path.normcase(os.path.abspath(custom_destination))
+        covered_by_source = False
+        for source in current["sources"]:
+            if not source.get("enabled", True) or not source.get("path"):
+                continue
+            source_abs = os.path.normcase(os.path.abspath(source["path"]))
+            try:
+                if os.path.commonpath((destination_abs, source_abs)) == source_abs:
+                    covered_by_source = True
+                    break
+            except ValueError:
+                continue
+        if not covered_by_source:
             STATE.settings.update({"sources": current["sources"] + [{"path": str(custom_destination), "enabled": True}]})
     if is_playlist and created:
         STATE.library.scan_async()
@@ -4409,6 +4546,85 @@ def _trim_local_track(track_id: str, start: float, end: float) -> dict:
     return {"ok": True, "filename": output.name, "path": str(output), "duration": end-start}
 
 
+def _distribute_edited_track(track_id: str, target_playlist_key: str, mode: str = "move",
+                             replace_track_id: str = "") -> dict:
+    """Move an Edited track into a local folder playlist, optionally replacing one track."""
+    with STATE.library.lock:
+        source_track = STATE.library.tracks.get(str(track_id or ""))
+        target_track = STATE.library.tracks.get(str(replace_track_id or "")) if replace_track_id else None
+        playlist_track = next((track for track in STATE.library.tracks.values()
+                               if track.get("pl") == target_playlist_key), None)
+        source_path = Path(source_track["path"]).resolve() if source_track else None
+        target_path = Path(target_track["path"]).resolve() if target_track else None
+        playlist_path = Path(playlist_track["path"]).resolve().parent if playlist_track else None
+        target_name = str(playlist_track.get("playlist") or "") if playlist_track else ""
+
+    if source_path is None or not source_path.is_file():
+        raise ValueError("Трек из Edited не найден. Обнови библиотеку и попробуй снова.")
+    edited_root = (MUSIC_DIR / "Edited").resolve()
+    try:
+        source_path.relative_to(edited_root)
+    except ValueError:
+        raise ValueError("Можно распределять только треки из папки music/Edited.")
+    if playlist_path is None:
+        raise ValueError("Локальный плейлист не найден. Обнови библиотеку и попробуй снова.")
+    try:
+        playlist_path.relative_to(edited_root)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("Выбери локальный плейлист вне папки Edited.")
+    if not target_playlist_key or target_playlist_key == source_track.get("pl"):
+        raise ValueError("Выбери другой локальный плейлист.")
+    if not playlist_path.is_dir():
+        raise ValueError("Папка выбранного плейлиста недоступна.")
+
+    def unique_path(folder: Path, filename: str) -> Path:
+        candidate = folder / filename
+        if not candidate.exists():
+            return candidate
+        stem, suffix = candidate.stem, candidate.suffix
+        index = 2
+        while True:
+            candidate = folder / f"{stem} ({index}){suffix}"
+            if not candidate.exists():
+                return candidate
+            index += 1
+
+    if mode not in ("move", "copy", "replace"):
+        raise ValueError("Неизвестное действие с треком.")
+    if mode in ("move", "copy"):
+        destination = unique_path(playlist_path, source_path.name)
+        if mode == "copy":
+            shutil.copy2(source_path, destination)
+        else:
+            source_path.rename(destination)
+        STATE.library.scan_async(force=True)
+        return {"ok": True, "action": mode, "filename": destination.name, "playlist": target_name}
+
+    if target_track is None or target_track.get("pl") != target_playlist_key or target_path is None or not target_path.is_file():
+        raise ValueError("Трек для замены не найден в выбранном плейлисте.")
+    if target_path == source_path:
+        raise ValueError("Нельзя заменить трек самим собой.")
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    backup = unique_path(edited_root, f"{target_path.stem} - original {stamp}{target_path.suffix}")
+    destination = target_path.with_suffix(source_path.suffix)
+    if destination.exists() and destination != target_path:
+        destination = unique_path(playlist_path, f"{target_path.stem} - Edited{source_path.suffix}")
+    target_path.rename(backup)
+    try:
+        source_path.rename(destination)
+    except OSError:
+        try:
+            backup.rename(target_path)
+        except OSError:
+            logger.exception("Не удалось восстановить оригинальный трек после ошибки замены")
+        raise
+    STATE.library.scan_async(force=True)
+    return {"ok": True, "action": "replace", "filename": destination.name,
+            "backup_filename": backup.name, "playlist": target_name}
+
+
 # ======================================================================================
 #  HTTP-сервер
 # ======================================================================================
@@ -4701,6 +4917,11 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/update-check":
                 force = str((query.get("force") or [""])[0]).lower() in ("1", "true", "yes")
                 return self._json(github_update_status(force=force))
+            if path == "/api/update/download/status":
+                try:
+                    return self._json(_update_download_snapshot(str((query.get("id") or [""])[0])))
+                except ValueError as error:
+                    return self._fail(404, str(error))
             if path == "/api/state":
                 return self._json(self._state_payload())
             if path == "/api/settings":
@@ -4885,6 +5106,12 @@ class Handler(BaseHTTPRequestHandler):
             return
 
     def _route_post(self, path: str, data: dict):
+        if path == "/api/update/download":
+            try:
+                return self._json(_start_update_download())
+            except Exception as error:
+                logger.warning("Не удалось начать загрузку обновления: %s", error)
+                return self._fail(500, str(error)[:300])
         if path == "/api/settings/export":
             try:
                 destination = Path.home() / "Downloads" / "last-frequency-settings.json"
@@ -5040,9 +5267,18 @@ class Handler(BaseHTTPRequestHandler):
                 include_clip = bool(data.get("include_clip"))
                 if include_clip and not _ACTIVE_CLIPS_ENABLED:
                     return self._fail(403, "Докачка клипа выключена в настройках «Режимы».")
+                destination_path = str(data.get("destination_path") or "")[:1000]
+                destination_playlist_key = str(data.get("destination_playlist_key") or "")[:500]
+                if destination_playlist_key:
+                    with STATE.library.lock:
+                        playlist_track = next((track for track in STATE.library.tracks.values()
+                                               if track.get("pl") == destination_playlist_key), None)
+                    if not playlist_track:
+                        return self._fail(404, "Локальный плейлист не найден. Обнови библиотеку и попробуй снова.")
+                    destination_path = str(Path(playlist_track["path"]).parent)
                 return self._json(_start_download_job(
                     str(data.get("url") or ""), str(data.get("playlist") or "Загрузки"),
-                    bool(data.get("is_playlist")), str(data.get("destination_path") or "")[:1000],
+                    bool(data.get("is_playlist")), destination_path,
                     str(data.get("provider") or ""), str(data.get("playlist_title") or "")[:200],
                     include_clip=include_clip and not bool(data.get("is_playlist")),
                 ))
@@ -5115,6 +5351,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self._fail(400, str(error)[:300])
             except Exception as error:
                 logger.exception("Не удалось обрезать трек")
+                return self._fail(500, str(error)[:300])
+        if path == "/api/track/distribute":
+            try:
+                return self._json(_distribute_edited_track(
+                    str(data.get("track_id") or ""),
+                    str(data.get("target_playlist_key") or "")[:500],
+                    str(data.get("mode") or "move")[:20],
+                    str(data.get("replace_track_id") or "")[:100],
+                ))
+            except ValueError as error:
+                return self._fail(400, str(error)[:300])
+            except OSError as error:
+                logger.warning("Не удалось переместить трек из Edited: %s", error)
+                return self._fail(409, "Не удалось изменить файл. Закрой проигрываемый трек или проверь доступ к папке.")
+            except Exception as error:
+                logger.exception("Не удалось распределить трек из Edited")
                 return self._fail(500, str(error)[:300])
         if path == "/api/settings":
             before = STATE.settings.get()
